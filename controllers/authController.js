@@ -70,6 +70,27 @@ exports.register = async (req, res) => {
   }
 };
 
+
+exports.getAllUsers = async (req, res) => {
+  try {
+    const users = await User.find().select("-password");
+
+    res.status(200).json({
+      success: true,
+      count: users.length,
+      data: users,
+    });
+
+  } catch (error) {
+    console.error("Get users error:", error);
+
+    res.status(500).json({
+      success: false,
+      message: error.message || "Failed to fetch users",
+    });
+  }
+};
+
 /**
  * @desc    Login user
  * @route   POST /api/auth/login

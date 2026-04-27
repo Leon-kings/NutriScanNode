@@ -55,7 +55,9 @@ exports.createOrder = async (req, res) => {
       },
     });
 
-    OrderStatusManager.startOrderStatusUpdates(orderId);
+if (orderData.autoProgress === true) {
+  OrderStatusManager.startOrderStatusUpdates(orderId);
+}
 
     res.status(201).json({
       success: true,
@@ -160,6 +162,39 @@ exports.updateOrder = async (req, res) => {
     res.json({
       success: true,
       message: "Order updated",
+      order,
+    });
+  } catch (error) {
+    res.status(500).json({ success: false, message: error.message });
+  }
+};
+
+
+exports.updateOrderStatus = async (req, res) => {
+  try {
+    const { orderId } = req.params;
+    const { status, note } = req.body;
+
+    const order = await Order.findOne({ orderId });
+
+    if (!order) {
+      return res.status(404).json({ success: false, message: "Order not found" });
+    }
+
+    // update only when explicitly called
+    order.bookingDetails.currentStatus = status;
+    order.bookingDetails.preparationStatus = status;
+
+    order.bookingDetails.statusHistory.push({
+      status,
+      timestamp: new Date().toISOString(),
+      note: note || `Order status changed to ${status}`,
+    });
+
+    await order.save();
+
+    res.status(200).json({
+      success: true,
       order,
     });
   } catch (error) {
