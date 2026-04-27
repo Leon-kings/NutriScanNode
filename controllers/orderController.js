@@ -1,338 +1,196 @@
-const { OrderStatusService } = require('../services/orderStatusService');
-const Order = require('../models/Order');
+const Order = require("../models/Order");
+const OrderStatusManager = require("../utils/orderStatusManager");
 
 /**
- * @desc    Create new order
- * @route   POST /api/orders
- * @access  Public
+ * CREATE ORDER
  */
-const createOrder = async (req, res) => {
+exports.createOrder = async (req, res) => {
   try {
     const orderData = req.body;
-    
-    // Validate required fields
-    if (!orderData.customerName) {
-      return res.status(400).json({
-        success: false,
-        message: 'Customer name is required'
-      });
-    }
-    
-    if (!orderData.items || orderData.items.length === 0) {
-      return res.status(400).json({
-        success: false,
-        message: 'At least one item is required'
-      });
-    }
-    
-    const result = await OrderStatusService.sendOrderToDatabase(orderData);
-    
-    if (result.success) {
-      res.status(201).json({
-        success: true,
-        data: {
-          orderId: result.orderId,
-          bookingId: result.bookingId,
-          estimatedPickupTime: result.estimatedPickupTime
-        },
-        message: result.message
-      });
-    } else {
-      res.status(500).json({
-        success: false,
-        message: result.message,
-        error: result.error
-      });
-    }
-    
-  } catch (error) {
-    console.error('Create order error:', error);
-    res.status(500).json({
-      success: false,
-      message: 'Failed to create order',
-      error: error.message
-    });
-  }
-};
 
-/**
- * @desc    Get order status
- * @route   GET /api/orders/:orderId/status
- * @access  Public
- */
-const getOrderStatus = async (req, res) => {
-  try {
-    const { orderId } = req.params;
-    
-    if (!orderId) {
-      return res.status(400).json({
-        success: false,
-        message: 'Order ID is required'
-      });
-    }
-    
-    const result = await OrderStatusService.getOrderStatus(orderId);
-    
-    if (result.success) {
-      res.status(200).json({
-        success: true,
-        data: {
-          orderId: result.orderId,
-          bookingId: result.bookingId,
-          status: result.status,
-          statusMessage: result.statusMessage,
-          estimatedTimeRemaining: result.estimatedTimeRemaining,
-          orderSummary: result.orderSummary,
-          personDetails: result.personDetails,
-          estimatedPickupTime: result.estimatedPickupTime,
-          statusHistory: result.statusHistory
-        },
-        message: result.message
-      });
-    } else {
-      res.status(404).json({
-        success: false,
-        message: result.message
-      });
-    }
-    
-  } catch (error) {
-    console.error('Get order status error:', error);
-    res.status(500).json({
-      success: false,
-      message: 'Failed to get order status',
-      error: error.message
-    });
-  }
-};
+    const orderId = `ORD_${Date.now()}_${Math.random().toString(36).substr(2, 9).toUpperCase()}`;
+    const bookingId = `BK_${Date.now()}_${Math.random().toString(36).substr(2, 6).toUpperCase()}`;
 
-/**
- * @desc    Update order status (manual)
- * @route   PUT /api/orders/:orderId/status
- * @access  Private (Manager/Chef only)
- */
-const updateOrderStatus = async (req, res) => {
-  try {
-    const { orderId } = req.params;
-    const { status, message } = req.body;
-    
-    if (!orderId || !status) {
-      return res.status(400).json({
-        success: false,
-        message: 'Order ID and status are required'
-      });
-    }
-    
-    const validStatuses = ['confirmed', 'preparing', 'ready', 'completed', 'cancelled'];
-    if (!validStatuses.includes(status)) {
-      return res.status(400).json({
-        success: false,
-        message: `Invalid status. Must be one of: ${validStatuses.join(', ')}`
-      });
-    }
-    
-    const result = await OrderStatusService.updateOrderStatus(
-      orderId, 
-      status, 
-      message, 
-      req.user?._id
-    );
-    
-    if (result.success) {
-      res.status(200).json({
-        success: true,
-        data: {
-          orderId: result.orderId,
-          status: result.status,
-          message: result.message
-        }
-      });
-    } else {
-      res.status(400).json({
-        success: false,
-        message: result.message
-      });
-    }
-    
-  } catch (error) {
-    console.error('Update order status error:', error);
-    res.status(500).json({
-      success: false,
-      message: 'Failed to update order status',
-      error: error.message
-    });
-  }
-};
+    const order = await Order.create({
+      orderId,
+      bookingId,
 
-/**
- * @desc    Get all active orders (Kitchen Dashboard)
- * @route   GET /api/orders/active
- * @access  Private (Chef/Manager)
- */
-const getActiveOrders = async (req, res) => {
-  try {
-    const result = await OrderStatusService.getActiveOrders();
-    
-    res.status(200).json({
+      personDetails: {
+        name: orderData.customerName,
+        tableNumber: orderData.tableNumber,
+        orderType: orderData.orderType || "dine-in",
+      },
+
+      bookingDetails: {
+        orderDate: new Date().toISOString(),
+        estimatedPickupTime: orderData.estimatedPickupTime,
+        preparationStatus: "confirmed",
+        currentStatus: "confirmed",
+        statusHistory: [
+          {
+            status: "confirmed",
+            timestamp: new Date().toISOString(),
+            note: "Order confirmed",
+          },
+        ],
+        specialInstructions: orderData.notes || "",
+      },
+
+      plateRecommendations: orderData.customizedPlates || [],
+
+      orderSummary: {
+        items: orderData.items || [],
+        subtotal: orderData.subtotal,
+        total: orderData.total,
+        totalItems: (orderData.items || []).reduce(
+          (sum, i) => sum + i.quantity,
+          0
+        ),
+      },
+
+      metadata: {
+        source: "NutriScan-AI-App",
+        version: "1.0.0",
+        timestamp: new Date().toISOString(),
+      },
+    });
+
+    OrderStatusManager.startOrderStatusUpdates(orderId);
+
+    res.status(201).json({
       success: true,
-      data: {
-        count: result.count,
-        orders: result.orders
-      }
+      order,
     });
-    
   } catch (error) {
-    console.error('Get active orders error:', error);
-    res.status(500).json({
-      success: false,
-      message: 'Failed to get active orders',
-      error: error.message
-    });
+    res.status(500).json({ success: false, message: error.message });
   }
 };
 
 /**
- * @desc    Cancel order
- * @route   POST /api/orders/:orderId/cancel
- * @access  Public (with verification)
+ * GET ALL ORDERS
  */
-const cancelOrder = async (req, res) => {
+exports.getAllOrders = async (req, res) => {
   try {
-    const { orderId } = req.params;
-    const { reason } = req.body;
-    
-    if (!orderId) {
-      return res.status(400).json({
-        success: false,
-        message: 'Order ID is required'
-      });
-    }
-    
-    const result = await OrderStatusService.cancelOrder(
-      orderId, 
-      reason, 
-      req.user?._id
-    );
-    
-    if (result.success) {
-      res.status(200).json({
-        success: true,
-        message: result.message,
-        data: { orderId: result.orderId }
-      });
-    } else {
-      res.status(400).json({
-        success: false,
-        message: result.message
-      });
-    }
-    
-  } catch (error) {
-    console.error('Cancel order error:', error);
-    res.status(500).json({
-      success: false,
-      message: 'Failed to cancel order',
-      error: error.message
+    const orders = await Order.find().sort({ createdAt: -1 });
+
+    res.json({
+      success: true,
+      count: orders.length,
+      orders,
     });
+  } catch (error) {
+    res.status(500).json({ success: false, message: error.message });
   }
 };
 
 /**
- * @desc    Get order by ID (full details)
- * @route   GET /api/orders/:orderId
- * @access  Private (Manager/Chef)
+ * GET SINGLE ORDER
  */
-const getOrderById = async (req, res) => {
+exports.getOrderById = async (req, res) => {
   try {
-    const { orderId } = req.params;
-    
-    const order = await Order.findByOrderId(orderId)
-      .populate('createdBy', 'name email')
-      .populate('assignedTo', 'name email');
-    
+    const order = await Order.findOne({ orderId: req.params.orderId });
+
     if (!order) {
       return res.status(404).json({
         success: false,
-        message: 'Order not found'
+        message: "Order not found",
       });
     }
-    
-    res.status(200).json({
+
+    res.json({
       success: true,
-      data: order
+      order,
     });
-    
   } catch (error) {
-    console.error('Get order by ID error:', error);
-    res.status(500).json({
-      success: false,
-      message: 'Failed to get order',
-      error: error.message
-    });
+    res.status(500).json({ success: false, message: error.message });
   }
 };
 
 /**
- * @desc    Get all orders (with pagination and filtering)
- * @route   GET /api/orders
- * @access  Private (Manager only)
+ * UPDATE ORDER
  */
-const getAllOrders = async (req, res) => {
+exports.updateOrder = async (req, res) => {
   try {
-    const { page = 1, limit = 20, status, startDate, endDate } = req.query;
-    
-    const query = {};
-    
-    if (status) {
-      query.status = status;
+    const order = await Order.findOne({ orderId: req.params.orderId });
+
+    if (!order) {
+      return res.status(404).json({
+        success: false,
+        message: "Order not found",
+      });
     }
-    
-    if (startDate || endDate) {
-      query.createdAt = {};
-      if (startDate) query.createdAt.$gte = new Date(startDate);
-      if (endDate) query.createdAt.$lte = new Date(endDate);
+
+    // ⚠️ Prevent updating completed orders
+    if (order.status === "completed") {
+      return res.status(400).json({
+        success: false,
+        message: "Cannot update completed order",
+      });
     }
-    
-    const skip = (parseInt(page) - 1) * parseInt(limit);
-    
-    const [orders, total] = await Promise.all([
-      Order.find(query)
-        .sort({ createdAt: -1 })
-        .skip(skip)
-        .limit(parseInt(limit))
-        .populate('createdBy', 'name email'),
-      Order.countDocuments(query)
-    ]);
-    
-    res.status(200).json({
+
+    // Update allowed fields
+    if (req.body.personDetails) {
+      order.personDetails = {
+        ...order.personDetails,
+        ...req.body.personDetails,
+      };
+    }
+
+    if (req.body.orderSummary) {
+      order.orderSummary = {
+        ...order.orderSummary,
+        ...req.body.orderSummary,
+      };
+    }
+
+    if (req.body.status) {
+      order.status = req.body.status;
+
+      order.bookingDetails.statusHistory.push({
+        status: req.body.status,
+        timestamp: new Date().toISOString(),
+        note: "Updated manually",
+      });
+
+      order.bookingDetails.currentStatus = req.body.status;
+    }
+
+    await order.save();
+
+    res.json({
       success: true,
-      data: {
-        orders,
-        pagination: {
-          page: parseInt(page),
-          limit: parseInt(limit),
-          total,
-          pages: Math.ceil(total / parseInt(limit))
-        }
-      }
+      message: "Order updated",
+      order,
     });
-    
   } catch (error) {
-    console.error('Get all orders error:', error);
-    res.status(500).json({
-      success: false,
-      message: 'Failed to get orders',
-      error: error.message
-    });
+    res.status(500).json({ success: false, message: error.message });
   }
 };
 
-module.exports = {
-  createOrder,
-  getOrderStatus,
-  updateOrderStatus,
-  getActiveOrders,
-  cancelOrder,
-  getOrderById,
-  getAllOrders
+/**
+ * DELETE ORDER
+ */
+exports.deleteOrder = async (req, res) => {
+  try {
+    const order = await Order.findOne({ orderId: req.params.orderId });
+
+    if (!order) {
+      return res.status(404).json({
+        success: false,
+        message: "Order not found",
+      });
+    }
+
+    // cleanup timeouts
+    OrderStatusManager.cleanupOrder(order.orderId);
+
+    await order.deleteOne();
+
+    res.json({
+      success: true,
+      message: "Order deleted successfully",
+    });
+  } catch (error) {
+    res.status(500).json({ success: false, message: error.message });
+  }
 };

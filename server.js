@@ -13,8 +13,9 @@ dotenv.config();
 const authRoutes = require("./routes/authRoutes");
 const errorMiddleware = require("./middleware/errorMiddleware");
 const orderRoutes = require('./routes/orderRoutes');
-const orderStatusRoutes = require('./routes/orderStatusRoutes');
-const { startStatusProcessor, stopStatusProcessor } = require('./services/orderStatusService');
+const foodRoutes = require("./routes/foodRoutes");
+
+
 
 // Initialize express app
 const app = express();
@@ -48,7 +49,7 @@ app.use("/api", limiter); // Apply rate limiting to API routes
 // Routes
 app.use("/auth", authRoutes);
 app.use('/orders', orderRoutes);
-app.use('/order-status', orderStatusRoutes);
+app.use("/foods", foodRoutes);
 
 // Health check endpoint
 app.get("/health", (req, res) => {
