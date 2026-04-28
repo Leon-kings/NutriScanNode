@@ -439,18 +439,129 @@ const OrderStatusManager = require("../utils/orderStatusManager");
 //   }
 // };
 
+// exports.createOrder = async (req, res) => {
+//   try {
+//     const orderData = req.body;
+
+//     if (!orderData.customerName) {
+//       return res.status(400).json({ success: false, message: "Customer name is required" });
+//     }
+
+//     if (!Array.isArray(orderData.items) || orderData.items.length === 0) {
+//       return res.status(400).json({ success: false, message: "At least one item is required" });
+//     }
+
+//     const items = orderData.items.map((item) => ({
+//       id: item.id,
+//       name: item.name,
+//       quantity: item.quantity || 1,
+//       originalPrice: item.originalPrice || 0,
+//       finalPrice: item.finalPrice || 0,
+//       customizations: item.customizations || [],
+//       specialInstructions: item.specialInstructions || "",
+//       preparationTime: item.preparationTime || 0,
+//     }));
+
+//     const subtotal = items.reduce(
+//       (sum, i) => sum + i.finalPrice * i.quantity,
+//       0
+//     );
+
+//     const order = new Order({
+//       orderId: Order.generateOrderId(),
+//       bookingId: Order.generateBookingId(),
+
+//       personDetails: {
+//         name: orderData.customerName,
+//         tableNumber: orderData.tableNumber || "",
+//         orderType: orderData.orderType || "dine-in",
+//       },
+
+//       bookingDetails: {
+//         orderDate: new Date(),
+//         estimatedPickupTime: orderData.estimatedPickupTime || "",
+//         preparationStatus: "preparing",
+//         currentStatus: "preparing",
+//         statusHistory: [
+//           {
+//             status: "preparing",
+//             timestamp: new Date(),
+//             note: "Order created",
+//           },
+//         ],
+//         specialInstructions: orderData.notes || "",
+//       },
+
+//       plateRecommendations: orderData.customizedPlates || [],
+
+//       orderSummary: {
+//         items,
+//         subtotal,
+//         total: subtotal,
+//         totalItems: items.reduce((s, i) => s + i.quantity, 0),
+//       },
+
+//       status: "preparing",
+
+//       metadata: {
+//         source: "NutriScan-AI-App",
+//         version: "1.0.0",
+//         createdAt: new Date(),
+//       },
+//     });
+
+//     await order.save();
+
+//     return res.status(201).json({
+//       success: true,
+//       message: "Order created successfully",
+//       data: order,
+//     });
+
+//   } catch (error) {
+//     console.error("CREATE ORDER ERROR:", error);
+
+//     if (error.code === 11000) {
+//       return res.status(400).json({
+//         success: false,
+//         message: "Duplicate order detected. Please retry.",
+//       });
+//     }
+
+//     return res.status(500).json({
+//       success: false,
+//       message: "Failed to create order",
+//     });
+//   }
+// };
+
+/* -------------------------
+   CREATE ORDER
+-------------------------- */
 exports.createOrder = async (req, res) => {
   try {
     const orderData = req.body;
 
-    if (!orderData.customerName) {
-      return res.status(400).json({ success: false, message: "Customer name is required" });
+    /* -------------------------
+       VALIDATION
+    -------------------------- */
+    if (!orderData.personDetails?.name && !orderData.customerName) {
+      return res.status(400).json({
+        success: false,
+        message: "Customer name is required",
+      });
     }
 
     if (!Array.isArray(orderData.items) || orderData.items.length === 0) {
-      return res.status(400).json({ success: false, message: "At least one item is required" });
+      return res.status(400).json({
+        success: false,
+        message: "Items must be a non-empty array",
+      });
     }
 
+    /* -------------------------
+       BUILD ITEMS (SERVER TRUST)
+    -------------------------- */
     const items = orderData.items.map((item) => ({
       id: item.id,
       name: item.name,
@@ -463,16 +574,22 @@ exports.createOrder = async (req, res) => {
     }));
 
     const subtotal = items.reduce(
-      (sum, i) => sum + i.finalPrice * i.quantity,
+      (sum, item) =>
+        sum + (item.finalPrice || 0) * (item.quantity || 1),
       0
     );
 
-    const order = new Order({
-      orderId: Order.generateOrderId(),
-      bookingId: Order.generateBookingId(),
+    const totalItems = items.reduce(
+      (sum, item) => sum + (item.quantity || 1),
+      0
+    );
 
+    /* -------------------------
+       CREATE ORDER OBJECT
+    -------------------------- */
+    const order = new Order({
       personDetails: {
-        name: orderData.customerName,
+        name: orderData.customerName || orderData.personDetails?.name,
         tableNumber: orderData.tableNumber || "",
         orderType: orderData.orderType || "dine-in",
       },
@@ -498,35 +615,43 @@ exports.createOrder = async (req, res) => {
         items,
         subtotal,
         total: subtotal,
-        totalItems: items.reduce((s, i) => s + i.quantity, 0),
+        totalItems,
       },
 
       status: "preparing",
 
       metadata: {
-        source: "NutriScan-AI-App",
-        version: "1.0.0",
+        source: "API",
         createdAt: new Date(),
       },
     });
 
-    await order.save();
+    /* -------------------------
+       SAVE (WITH DUPLICATE SAFETY)
+    -------------------------- */
+    try {
+      await order.save();
+    } catch (err) {
+      if (err.code === 11000) {
+        return res.status(409).json({
+          success: false,
+          message: "Duplicate order detected. Please retry.",
+          field: err.keyValue,
+        });
+      }
+      throw err;
+    }
 
+    /* -------------------------
+       RESPONSE
+    -------------------------- */
     return res.status(201).json({
       success: true,
       message: "Order created successfully",
       data: order,
     });
-
   } catch (error) {
     console.error("CREATE ORDER ERROR:", error);
-
-    if (error.code === 11000) {
-      return res.status(400).json({
-        success: false,
-        message: "Duplicate order detected. Please retry.",
-      });
-    }
 
     return res.status(500).json({
       success: false,
