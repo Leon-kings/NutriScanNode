@@ -1005,9 +1005,120 @@ const { randomUUID } = require("crypto");
 /* -------------------------
    CREATE ORDER
 -------------------------- */
+// exports.createOrder = async (req, res) => {
+//   try {
+//     const data = req.body;
+
+//     /* -------------------------
+//        VALIDATION
+//     -------------------------- */
+//     if (!data.personDetails?.name && !data.customerName) {
+//       return res.status(400).json({
+//         success: false,
+//         message: "Customer name is required",
+//       });
+//     }
+
+//     if (!Array.isArray(data.items) || data.items.length === 0) {
+//       return res.status(400).json({
+//         success: false,
+//         message: "Items must be a non-empty array",
+//       });
+//     }
+
+//     /* -------------------------
+//        GENERATE SAFE ORDER ID
+//     -------------------------- */
+//     const orderId = `ORD-${Date.now()}-${randomUUID()}`;
+
+//     /* -------------------------
+//        NORMALIZE ITEMS
+//     -------------------------- */
+//     const items = data.items.map((item) => ({
+//       id: item.id,
+//       name: item.name,
+//       quantity: item.quantity || 1,
+//       originalPrice: item.originalPrice || 0,
+//       finalPrice: item.finalPrice || 0,
+//       preparationTime: item.preparationTime || 0,
+//       customizations: item.customizations || [],
+//       specialInstructions: item.specialInstructions || "",
+//     }));
+
+//     /* -------------------------
+//        CREATE ORDER
+//     -------------------------- */
+//     const order = new Order({
+//       orderId,
+
+//       autoProgress: data.autoProgress || false,
+
+//       personDetails: {
+//         name: data.customerName || data.personDetails?.name,
+//         tableNumber: data.tableNumber || data.personDetails?.tableNumber || "",
+//         orderType: data.orderType || data.personDetails?.orderType || "dine-in",
+//       },
+
+//       bookingDetails: {
+//         estimatedPickupTime:
+//           data.bookingDetails?.estimatedPickupTime ||
+//           data.estimatedPickupTime ||
+//           "",
+//         specialInstructions:
+//           data.bookingDetails?.specialInstructions || data.notes || "",
+
+//         currentStatus: "confirmed",
+//         statusHistory: [
+//           {
+//             status: "confirmed",
+//             timestamp: new Date(),
+//             note: "Order created",
+//           },
+//         ],
+//       },
+
+//       customizedPlates: data.customizedPlates || [],
+//       items,
+//       notes: data.notes || "",
+//       status: "confirmed",
+//     });
+
+//     await order.save();
+
+//     /* -------------------------
+//        AUTO PROGRESS
+//     -------------------------- */
+//     if (data.autoProgress === true) {
+//       OrderStatusManager.start(orderId);
+//     }
+
+//     return res.status(201).json({
+//       success: true,
+//       message: "Order created successfully",
+//       data: order,
+//     });
+//   } catch (error) {
+//     console.error("CREATE ORDER ERROR:", error);
+
+//     if (error.code === 11000) {
+//       return res.status(409).json({
+//         success: false,
+//         message: "Duplicate order detected. Please retry.",
+//       });
+//     }
+
+//     return res.status(500).json({
+//       success: false,
+//       message: error.message || "Failed to create order",
+//     });
+//   }
+// };
+
 exports.createOrder = async (req, res) => {
   try {
     const data = req.body;
+
+    console.log("📥 Incoming order request");
 
     /* -------------------------
        VALIDATION
@@ -1022,14 +1133,36 @@ exports.createOrder = async (req, res) => {
     if (!Array.isArray(data.items) || data.items.length === 0) {
       return res.status(400).json({
         success: false,
-        message: "Items must be a non-empty array",
+        message: "Items must be provided",
       });
     }
 
     /* -------------------------
-       GENERATE SAFE ORDER ID
+       IDEMPOTENCY KEY (CRITICAL)
+    -------------------------- */
+    const requestId =
+      data.requestId || req.headers["x-request-id"] || randomUUID();
+
+    console.log("🧠 requestId:", requestId);
+
+    // ✅ Prevent duplicate request execution
+    const existingRequest = await Order.findOne({ requestId });
+    if (existingRequest) {
+      console.log("⚠️ Duplicate request detected → returning existing order");
+
+      return res.status(200).json({
+        success: true,
+        message: "Order already created (idempotent)",
+        data: existingRequest,
+      });
+    }
+
+    /* -------------------------
+       GENERATE UNIQUE ORDER ID
     -------------------------- */
     const orderId = `ORD-${Date.now()}-${randomUUID()}`;
+
+    console.log("🆔 orderId:", orderId);
 
     /* -------------------------
        NORMALIZE ITEMS
@@ -1050,24 +1183,26 @@ exports.createOrder = async (req, res) => {
     -------------------------- */
     const order = new Order({
       orderId,
+      requestId,
 
       autoProgress: data.autoProgress || false,
 
       personDetails: {
         name: data.customerName || data.personDetails?.name,
-        tableNumber: data.tableNumber || data.personDetails?.tableNumber || "",
-        orderType: data.orderType || data.personDetails?.orderType || "dine-in",
+        tableNumber:
+          data.tableNumber || data.personDetails?.tableNumber || "",
+        orderType:
+          data.orderType || data.personDetails?.orderType || "dine-in",
       },
 
       bookingDetails: {
         estimatedPickupTime:
-          data.bookingDetails?.estimatedPickupTime ||
-          data.estimatedPickupTime ||
-          "",
+          data.bookingDetails?.estimatedPickupTime || "",
         specialInstructions:
           data.bookingDetails?.specialInstructions || data.notes || "",
 
         currentStatus: "confirmed",
+
         statusHistory: [
           {
             status: "confirmed",
@@ -1077,35 +1212,56 @@ exports.createOrder = async (req, res) => {
         ],
       },
 
-      customizedPlates: data.customizedPlates || [],
       items,
       notes: data.notes || "",
       status: "confirmed",
     });
 
-    await order.save();
-
     /* -------------------------
-       AUTO PROGRESS
+       SAFE SAVE (RACE CONDITION PROTECTION)
     -------------------------- */
-    if (data.autoProgress === true) {
-      OrderStatusManager.start(orderId);
+    try {
+      await order.save();
+      console.log("✅ Order saved successfully");
+    } catch (err) {
+      console.error("❌ SAVE ERROR:", err);
+
+      // 🔥 If duplicate happens at DB level → recover safely
+      if (err.code === 11000) {
+        console.warn("⚠️ Duplicate detected at DB level");
+
+        const existing = await Order.findOne({
+          $or: [{ requestId }, { orderId }],
+        });
+
+        if (existing) {
+          return res.status(200).json({
+            success: true,
+            message: "Recovered duplicate order",
+            data: existing,
+          });
+        }
+
+        return res.status(409).json({
+          success: false,
+          message: "Duplicate order detected. Retry safely.",
+          details: err.keyValue,
+        });
+      }
+
+      throw err;
     }
 
+    /* -------------------------
+       RESPONSE
+    -------------------------- */
     return res.status(201).json({
       success: true,
       message: "Order created successfully",
       data: order,
     });
   } catch (error) {
-    console.error("CREATE ORDER ERROR:", error);
-
-    if (error.code === 11000) {
-      return res.status(409).json({
-        success: false,
-        message: "Duplicate order detected. Please retry.",
-      });
-    }
+    console.error("🔥 CREATE ORDER FATAL ERROR:", error);
 
     return res.status(500).json({
       success: false,
