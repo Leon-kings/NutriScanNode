@@ -443,32 +443,14 @@ exports.createOrder = async (req, res) => {
   try {
     const orderData = req.body;
 
-    /* -------------------------
-       ✅ VALIDATION (MATCH FRONTEND)
-    -------------------------- */
     if (!orderData.customerName) {
-      return res.status(400).json({
-        success: false,
-        message: "Customer name is required",
-      });
+      return res.status(400).json({ success: false, message: "Customer name is required" });
     }
 
-    if (!orderData.items || orderData.items.length === 0) {
-      return res.status(400).json({
-        success: false,
-        message: "At least one item is required",
-      });
+    if (!Array.isArray(orderData.items) || orderData.items.length === 0) {
+      return res.status(400).json({ success: false, message: "At least one item is required" });
     }
 
-    /* -------------------------
-       🆔 SAFE ID GENERATION
-    -------------------------- */
-    const orderId = Order.generateOrderId();
-    const bookingId = Order.generateBookingId();
-
-    /* -------------------------
-       🧮 CALCULATIONS (TRUST BACKEND)
-    -------------------------- */
     const items = orderData.items.map((item) => ({
       id: item.id,
       name: item.name,
@@ -482,19 +464,12 @@ exports.createOrder = async (req, res) => {
 
     const subtotal = items.reduce(
       (sum, i) => sum + i.finalPrice * i.quantity,
-      0,
+      0
     );
 
-    const totalItems = items.reduce((sum, i) => sum + i.quantity, 0);
-
-    const total = subtotal;
-
-    /* -------------------------
-       💾 CREATE ORDER (MATCH MODEL)
-    -------------------------- */
-    const order = await Order.create({
-      orderId,
-      bookingId,
+    const order = new Order({
+      orderId: Order.generateOrderId(),
+      bookingId: Order.generateBookingId(),
 
       personDetails: {
         name: orderData.customerName,
@@ -509,7 +484,7 @@ exports.createOrder = async (req, res) => {
         currentStatus: "preparing",
         statusHistory: [
           {
-            status: "confirmed",
+            status: "preparing",
             timestamp: new Date(),
             note: "Order created",
           },
@@ -522,8 +497,8 @@ exports.createOrder = async (req, res) => {
       orderSummary: {
         items,
         subtotal,
-        total,
-        totalItems,
+        total: subtotal,
+        totalItems: items.reduce((s, i) => s + i.quantity, 0),
       },
 
       status: "preparing",
@@ -535,29 +510,17 @@ exports.createOrder = async (req, res) => {
       },
     });
 
-    /* -------------------------
-       🔁 OPTIONAL AUTO PROGRESS
-    -------------------------- */
-    if (orderData.autoProgress === true) {
-      try {
-        // await OrderStatusManager.startOrderStatusUpdates(order.orderId);
-      } catch (err) {
-        console.warn("Auto პროგression failed:", err.message);
-      }
-    }
+    await order.save();
 
-    /* -------------------------
-       ✅ RESPONSE (MATCH FRONTEND EXPECTATION)
-    -------------------------- */
-    res.status(201).json({
+    return res.status(201).json({
       success: true,
       message: "Order created successfully",
       data: order,
     });
+
   } catch (error) {
     console.error("CREATE ORDER ERROR:", error);
 
-    // 🔥 Handle duplicate key safely
     if (error.code === 11000) {
       return res.status(400).json({
         success: false,
@@ -565,9 +528,9 @@ exports.createOrder = async (req, res) => {
       });
     }
 
-    res.status(500).json({
+    return res.status(500).json({
       success: false,
-      message: error.message || "Failed to create order",
+      message: "Failed to create order",
     });
   }
 };

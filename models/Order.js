@@ -373,6 +373,248 @@
 
 
 
+// const mongoose = require("mongoose");
+
+// /* -------------------------
+//    STATUS HISTORY
+// -------------------------- */
+// const StatusHistorySchema = new mongoose.Schema({
+//   status: {
+//     type: String,
+//     enum: ["confirmed", "preparing", "ready", "completed"],
+//     default: "preparing",
+//     required: true,
+//   },
+//   timestamp: {
+//     type: Date,
+//     default: Date.now,
+//   },
+//   note: {
+//     type: String,
+//     default: "",
+//   },
+// });
+
+// /* -------------------------
+//    ITEM SUBSCHEMA (MATCH FRONTEND)
+// -------------------------- */
+// const ItemSchema = new mongoose.Schema({
+//   id: String,
+//   name: String,
+//   quantity: { type: Number, default: 1 },
+//   originalPrice: { type: Number, default: 0 },
+//   finalPrice: { type: Number, default: 0 },
+//   customizations: {
+//     type: [mongoose.Schema.Types.Mixed],
+//     default: [],
+//   },
+//   specialInstructions: String,
+//   preparationTime: { type: Number, default: 0 },
+// });
+
+// /* -------------------------
+//    MAIN ORDER SCHEMA
+// -------------------------- */
+// const OrderSchema = new mongoose.Schema(
+//   {
+//     orderId: {
+//       type: String,
+//       required: true,
+//       unique: true,
+//     },
+
+//     bookingId: {
+//       type: String,
+//       required: true,
+//       unique: true,
+//     },
+
+//     /* ✅ MATCHES: customerName, tableNumber, orderType */
+//     personDetails: {
+//       name: { type: String, required: true },
+//       tableNumber: { type: String, default: "" },
+//       orderType: {
+//         type: String,
+//         enum: ["dine-in", "takeaway", "delivery"],
+//         default: "dine-in",
+//       },
+//     },
+
+//     bookingDetails: {
+//       orderDate: { type: Date, default: Date.now },
+//       estimatedPickupTime: { type: String, default: "" },
+
+//       preparationStatus: {
+//         type: String,
+//         enum: ["confirmed", "preparing", "ready", "completed"],
+//         default: "preparing",
+//       },
+
+//       currentStatus: {
+//         type: String,
+//         enum: ["confirmed", "preparing", "ready", "completed"],
+//         default: "preparing",
+//       },
+
+//       statusHistory: {
+//         type: [StatusHistorySchema],
+//         default: [],
+//       },
+
+//       specialInstructions: {
+//         type: String,
+//         default: "",
+//       },
+//     },
+
+//     /* ✅ MATCHES: customizedPlates */
+//     plateRecommendations: [
+//       {
+//         plateId: String,
+//         originalName: String,
+//         customizations: {
+//           type: [mongoose.Schema.Types.Mixed],
+//           default: [],
+//         },
+//         specialInstructions: String,
+//       },
+//     ],
+
+//     /* ✅ MATCHES: items */
+//     orderSummary: {
+//       items: {
+//         type: [ItemSchema],
+//         default: [],
+//       },
+
+//       subtotal: { type: Number, default: 0 },
+//       total: { type: Number, default: 0 },
+//       totalItems: { type: Number, default: 0 },
+//     },
+
+//     status: {
+//       type: String,
+//       enum: ["confirmed", "preparing", "ready", "completed"],
+//       default: "preparing",
+//     },
+
+//     metadata: {
+//       type: mongoose.Schema.Types.Mixed,
+//       default: {},
+//     },
+//   },
+//   { timestamps: true },
+// );
+
+// /* -------------------------
+//    SAFE INDEXES
+// -------------------------- */
+
+// OrderSchema.index({ status: 1 });
+// OrderSchema.index({ createdAt: -1 });
+// OrderSchema.index({ "bookingDetails.currentStatus": 1 });
+
+// OrderSchema.index({ status: 1, createdAt: -1 });
+// OrderSchema.index({ "bookingDetails.currentStatus": 1, createdAt: -1 });
+
+// /* -------------------------
+//    AUTO ID GENERATION (STRONGER)
+// -------------------------- */
+
+// OrderSchema.statics.generateOrderId = function () {
+//   return `ORD-${Date.now()}-${Math.random().toString(36).slice(2, 8).toUpperCase()}`;
+// };
+
+// OrderSchema.statics.generateBookingId = function () {
+//   return `BOOK-${Date.now()}-${Math.random().toString(36).slice(2, 6).toUpperCase()}`;
+// };
+
+// /* -------------------------
+//    PRE-VALIDATION PROTECTION
+// -------------------------- */
+
+// OrderSchema.pre("validate", function (next) {
+//   if (!this.orderId) {
+//     this.orderId = this.constructor.generateOrderId();
+//   }
+
+//   if (!this.bookingId) {
+//     this.bookingId = this.constructor.generateBookingId();
+//   }
+
+//   next();
+// });
+
+// /* -------------------------
+//    AUTO CALCULATIONS (BACKEND TRUST)
+// -------------------------- */
+
+// OrderSchema.pre("save", function (next) {
+//   if (this.orderSummary?.items?.length > 0) {
+//     const subtotal = this.orderSummary.items.reduce(
+//       (sum, item) => sum + (item.finalPrice || 0) * (item.quantity || 1),
+//       0,
+//     );
+
+//     const totalItems = this.orderSummary.items.reduce(
+//       (sum, item) => sum + (item.quantity || 1),
+//       0,
+//     );
+
+//     this.orderSummary.subtotal = subtotal;
+//     this.orderSummary.total = subtotal;
+//     this.orderSummary.totalItems = totalItems;
+//   }
+
+//   next();
+// });
+
+// /* -------------------------
+//    STATUS SYNC (IMPORTANT)
+// -------------------------- */
+
+// OrderSchema.pre("save", function (next) {
+//   // Keep top-level status and bookingDetails in sync
+//   if (this.isModified("status")) {
+//     this.bookingDetails.currentStatus = this.status;
+
+//     this.bookingDetails.statusHistory.push({
+//       status: this.status,
+//       timestamp: new Date(),
+//       note: "Status updated",
+//     });
+//   }
+
+//   next();
+// });
+
+// /* -------------------------
+//    CLEANUP BROKEN INDEX
+// -------------------------- */
+
+// OrderSchema.statics.cleanupIndexes = async function () {
+//   const indexes = await this.collection.indexes();
+
+//   const badIndex = indexes.find((i) => i.name === "bookingDetails.bookingId_1");
+
+//   if (badIndex) {
+//     console.log("⚠️ Dropping broken index: bookingDetails.bookingId_1");
+//     await this.collection.dropIndex("bookingDetails.bookingId_1");
+//   }
+// };
+
+// module.exports = mongoose.model("Order", OrderSchema);
+
+
+
+
+
+
+
+
+
+
+
 const mongoose = require("mongoose");
 
 /* -------------------------
@@ -396,7 +638,7 @@ const StatusHistorySchema = new mongoose.Schema({
 });
 
 /* -------------------------
-   ITEM SUBSCHEMA (MATCH FRONTEND)
+   ITEM SUBSCHEMA
 -------------------------- */
 const ItemSchema = new mongoose.Schema({
   id: String,
@@ -429,7 +671,6 @@ const OrderSchema = new mongoose.Schema(
       unique: true,
     },
 
-    /* ✅ MATCHES: customerName, tableNumber, orderType */
     personDetails: {
       name: { type: String, required: true },
       tableNumber: { type: String, default: "" },
@@ -467,7 +708,6 @@ const OrderSchema = new mongoose.Schema(
       },
     },
 
-    /* ✅ MATCHES: customizedPlates */
     plateRecommendations: [
       {
         plateId: String,
@@ -480,13 +720,11 @@ const OrderSchema = new mongoose.Schema(
       },
     ],
 
-    /* ✅ MATCHES: items */
     orderSummary: {
       items: {
         type: [ItemSchema],
         default: [],
       },
-
       subtotal: { type: Number, default: 0 },
       total: { type: Number, default: 0 },
       totalItems: { type: Number, default: 0 },
@@ -503,24 +741,21 @@ const OrderSchema = new mongoose.Schema(
       default: {},
     },
   },
-  { timestamps: true },
+  { timestamps: true }
 );
 
 /* -------------------------
-   SAFE INDEXES
+   INDEXES
 -------------------------- */
-
 OrderSchema.index({ status: 1 });
 OrderSchema.index({ createdAt: -1 });
 OrderSchema.index({ "bookingDetails.currentStatus": 1 });
-
 OrderSchema.index({ status: 1, createdAt: -1 });
 OrderSchema.index({ "bookingDetails.currentStatus": 1, createdAt: -1 });
 
 /* -------------------------
-   AUTO ID GENERATION (STRONGER)
+   ID GENERATION
 -------------------------- */
-
 OrderSchema.statics.generateOrderId = function () {
   return `ORD-${Date.now()}-${Math.random().toString(36).slice(2, 8).toUpperCase()}`;
 };
@@ -530,10 +765,9 @@ OrderSchema.statics.generateBookingId = function () {
 };
 
 /* -------------------------
-   PRE-VALIDATION PROTECTION
+   PRE-VALIDATE (NO next)
 -------------------------- */
-
-OrderSchema.pre("validate", function (next) {
+OrderSchema.pre("validate", function () {
   if (!this.orderId) {
     this.orderId = this.constructor.generateOrderId();
   }
@@ -541,40 +775,33 @@ OrderSchema.pre("validate", function (next) {
   if (!this.bookingId) {
     this.bookingId = this.constructor.generateBookingId();
   }
-
-  next();
 });
 
 /* -------------------------
-   AUTO CALCULATIONS (BACKEND TRUST)
+   PRE-SAVE CALCULATIONS
 -------------------------- */
-
-OrderSchema.pre("save", function (next) {
+OrderSchema.pre("save", function () {
   if (this.orderSummary?.items?.length > 0) {
     const subtotal = this.orderSummary.items.reduce(
       (sum, item) => sum + (item.finalPrice || 0) * (item.quantity || 1),
-      0,
+      0
     );
 
     const totalItems = this.orderSummary.items.reduce(
       (sum, item) => sum + (item.quantity || 1),
-      0,
+      0
     );
 
     this.orderSummary.subtotal = subtotal;
     this.orderSummary.total = subtotal;
     this.orderSummary.totalItems = totalItems;
   }
-
-  next();
 });
 
 /* -------------------------
-   STATUS SYNC (IMPORTANT)
+   STATUS SYNC
 -------------------------- */
-
-OrderSchema.pre("save", function (next) {
-  // Keep top-level status and bookingDetails in sync
+OrderSchema.pre("save", function () {
   if (this.isModified("status")) {
     this.bookingDetails.currentStatus = this.status;
 
@@ -584,18 +811,17 @@ OrderSchema.pre("save", function (next) {
       note: "Status updated",
     });
   }
-
-  next();
 });
 
 /* -------------------------
-   CLEANUP BROKEN INDEX
+   CLEANUP INDEX
 -------------------------- */
-
 OrderSchema.statics.cleanupIndexes = async function () {
   const indexes = await this.collection.indexes();
 
-  const badIndex = indexes.find((i) => i.name === "bookingDetails.bookingId_1");
+  const badIndex = indexes.find(
+    (i) => i.name === "bookingDetails.bookingId_1"
+  );
 
   if (badIndex) {
     console.log("⚠️ Dropping broken index: bookingDetails.bookingId_1");
