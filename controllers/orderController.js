@@ -987,6 +987,16 @@
 //   }
 // };
 
+
+
+
+
+
+
+
+
+
+
 const Order = require("../models/Order");
 const OrderStatusManager = require("../utils/orderStatusManager");
 const { randomUUID } = require("crypto");
@@ -1103,16 +1113,167 @@ const { randomUUID } = require("crypto");
 //   }
 // };
 
+// exports.createOrder = async (req, res) => {
+//   try {
+//     const data = req.body;
+
+//     console.log("📥 Incoming order request");
+
+//     /* -------------------------
+//        VALIDATION
+//     -------------------------- */
+//     if (!data.personDetails?.name && !data.customerName) {
+//       return res.status(400).json({
+//         success: false,
+//         message: "Customer name is required",
+//       });
+//     }
+
+//     if (!Array.isArray(data.items) || data.items.length === 0) {
+//       return res.status(400).json({
+//         success: false,
+//         message: "Items must be provided",
+//       });
+//     }
+
+//     /* -------------------------
+//        IDEMPOTENCY KEY (FIXED)
+//     -------------------------- */
+//     const requestId =
+//       data.requestId || req.headers["x-request-id"];
+
+//     if (!requestId) {
+//       return res.status(400).json({
+//         success: false,
+//         message: "requestId is required",
+//       });
+//     }
+
+//     console.log("🧠 requestId:", requestId);
+
+//     // ✅ PROPER duplicate check BEFORE saving
+//     const existingRequest = await Order.findOne({ requestId });
+
+//     if (existingRequest) {
+//       console.log("⚠️ Duplicate request detected");
+
+//       return res.status(200).json({
+//         success: true,
+//         message: "Order already exists (idempotent)",
+//         data: existingRequest,
+//       });
+//     }
+
+//     /* -------------------------
+//        ORDER ID (SAFER)
+//     -------------------------- */
+//     const orderId = `ORD-${Date.now()}-${Math.floor(Math.random() * 1e6)}`;
+
+//     console.log("🆔 orderId:", orderId);
+
+//     /* -------------------------
+//        NORMALIZE ITEMS
+//     -------------------------- */
+//     const items = data.items.map((item) => ({
+//       id: item.id,
+//       name: item.name,
+//       quantity: item.quantity || 1,
+//       originalPrice: item.originalPrice || 0,
+//       finalPrice: item.finalPrice || 0,
+//       preparationTime: item.preparationTime || 0,
+//       customizations: item.customizations || [],
+//       specialInstructions: item.specialInstructions || "",
+//     }));
+
+//     /* -------------------------
+//        CREATE ORDER
+//     -------------------------- */
+//     const order = new Order({
+//       orderId,
+//       requestId,
+
+//       autoProgress: data.autoProgress || false,
+
+//       personDetails: {
+//         name: data.customerName || data.personDetails?.name,
+//         tableNumber: data.tableNumber || data.personDetails?.tableNumber || "",
+//         orderType: data.orderType || data.personDetails?.orderType || "dine-in",
+//       },
+
+//       bookingDetails: {
+//         estimatedPickupTime:
+//           data.bookingDetails?.estimatedPickupTime || "",
+
+//         specialInstructions:
+//           data.bookingDetails?.specialInstructions || data.notes || "",
+
+//         currentStatus: "confirmed",
+
+//         statusHistory: [
+//           {
+//             status: "confirmed",
+//             timestamp: new Date(),
+//             note: "Order created",
+//           },
+//         ],
+//       },
+
+//       items,
+//       notes: data.notes || "",
+//       status: "confirmed",
+//     });
+
+//     /* -------------------------
+//        SAVE WITH RACE SAFETY
+//     -------------------------- */
+//     try {
+//       await order.save();
+//       console.log("✅ Order saved successfully");
+
+//       return res.status(201).json({
+//         success: true,
+//         message: "Order created successfully",
+//         data: order,
+//       });
+
+//     } catch (err) {
+//       console.error("❌ SAVE ERROR:", err);
+
+//       if (err.code === 11000) {
+//         const key = Object.keys(err.keyPattern || {})[0];
+
+//         console.log("Duplicate key field:", key);
+
+//         const existing = await Order.findOne({
+//           [key]: err.keyValue[key],
+//         });
+
+//         return res.status(200).json({
+//           success: true,
+//           message: "Recovered duplicate order safely",
+//           data: existing,
+//         });
+//       }
+
+//       throw err;
+//     }
+
+//   } catch (error) {
+//     console.error("🔥 CREATE ORDER ERROR:", error);
+
+//     return res.status(500).json({
+//       success: false,
+//       message: error.message || "Failed to create order",
+//     });
+//   }
+// };
+
 exports.createOrder = async (req, res) => {
   try {
     const data = req.body;
 
-    console.log("📥 Incoming order request");
-
-    /* -------------------------
-       VALIDATION
-    -------------------------- */
-    if (!data.personDetails?.name && !data.customerName) {
+    /* ---------------- VALIDATION ---------------- */
+    if (!data.personDetails?.name) {
       return res.status(400).json({
         success: false,
         message: "Customer name is required",
@@ -1126,44 +1287,33 @@ exports.createOrder = async (req, res) => {
       });
     }
 
-    /* -------------------------
-       IDEMPOTENCY KEY (FIXED)
-    -------------------------- */
-    const requestId =
+    /* ---------------- REQUEST ID ---------------- */
+    let requestId =
       data.requestId || req.headers["x-request-id"];
 
     if (!requestId) {
-      return res.status(400).json({
-        success: false,
-        message: "requestId is required",
-      });
+      requestId = crypto.randomUUID(); // fallback safety
     }
 
     console.log("🧠 requestId:", requestId);
 
-    // ✅ PROPER duplicate check BEFORE saving
-    const existingRequest = await Order.findOne({ requestId });
+    /* ---------------- CHECK DUPLICATE (FAST PATH) ---------------- */
+    const existing = await Order.findOne({ requestId });
 
-    if (existingRequest) {
-      console.log("⚠️ Duplicate request detected");
-
+    if (existing) {
       return res.status(200).json({
         success: true,
-        message: "Order already exists (idempotent)",
-        data: existingRequest,
+        message: "Duplicate request (safe)",
+        data: existing,
       });
     }
 
-    /* -------------------------
-       ORDER ID (SAFER)
-    -------------------------- */
-    const orderId = `ORD-${Date.now()}-${Math.floor(Math.random() * 1e6)}`;
+    /* ---------------- ORDER ID ---------------- */
+    const orderId = `ORD-${Date.now()}-${Math.floor(
+      Math.random() * 1e6
+    )}`;
 
-    console.log("🆔 orderId:", orderId);
-
-    /* -------------------------
-       NORMALIZE ITEMS
-    -------------------------- */
+    /* ---------------- NORMALIZE ITEMS ---------------- */
     const items = data.items.map((item) => ({
       id: item.id,
       name: item.name,
@@ -1175,19 +1325,16 @@ exports.createOrder = async (req, res) => {
       specialInstructions: item.specialInstructions || "",
     }));
 
-    /* -------------------------
-       CREATE ORDER
-    -------------------------- */
-    const order = new Order({
+    /* ---------------- CREATE ORDER ---------------- */
+    const orderPayload = {
       orderId,
       requestId,
-
       autoProgress: data.autoProgress || false,
 
       personDetails: {
-        name: data.customerName || data.personDetails?.name,
-        tableNumber: data.tableNumber || data.personDetails?.tableNumber || "",
-        orderType: data.orderType || data.personDetails?.orderType || "dine-in",
+        name: data.personDetails.name,
+        tableNumber: data.personDetails.tableNumber || "",
+        orderType: data.personDetails.orderType || "dine-in",
       },
 
       bookingDetails: {
@@ -1195,68 +1342,55 @@ exports.createOrder = async (req, res) => {
           data.bookingDetails?.estimatedPickupTime || "",
 
         specialInstructions:
-          data.bookingDetails?.specialInstructions || data.notes || "",
+          data.bookingDetails?.specialInstructions || "",
 
-        currentStatus: "confirmed",
-
+        currentStatus: "preparing", // ✅ default
         statusHistory: [
           {
-            status: "confirmed",
-            timestamp: new Date(),
-            note: "Order created",
+            status: "preparing",
+            note: "Order started",
           },
         ],
       },
 
       items,
       notes: data.notes || "",
-      status: "confirmed",
-    });
+      status: "preparing", // ✅ default
+    };
 
-    /* -------------------------
-       SAVE WITH RACE SAFETY
-    -------------------------- */
+    /* ---------------- SAVE (RACE SAFE) ---------------- */
     try {
-      await order.save();
-      console.log("✅ Order saved successfully");
+      const order = await Order.create(orderPayload);
 
       return res.status(201).json({
         success: true,
-        message: "Order created successfully",
+        message: "Order created",
         data: order,
       });
-
     } catch (err) {
-      console.error("❌ SAVE ERROR:", err);
-
-      if (err.code === 11000) {
-        const key = Object.keys(err.keyPattern || {})[0];
-
-        console.log("Duplicate key field:", key);
-
-        const existing = await Order.findOne({
-          [key]: err.keyValue[key],
-        });
+      // 🔥 HANDLE DUPLICATE FROM UNIQUE INDEX
+      if (err.code === 11000 && err.keyPattern?.requestId) {
+        const existing = await Order.findOne({ requestId });
 
         return res.status(200).json({
           success: true,
-          message: "Recovered duplicate order safely",
+          message: "Duplicate recovered",
           data: existing,
         });
       }
 
       throw err;
     }
-
   } catch (error) {
-    console.error("🔥 CREATE ORDER ERROR:", error);
+    console.error("🔥 CREATE ERROR:", error);
 
     return res.status(500).json({
       success: false,
-      message: error.message || "Failed to create order",
+      message: error.message,
     });
   }
 };
+
 
 /* -------------------------
    GET ALL ORDERS
@@ -1303,10 +1437,90 @@ exports.getOrderById = async (req, res) => {
 /* -------------------------
    UPDATE ORDER
 -------------------------- */
+// exports.updateOrder = async (req, res) => {
+//   try {
+//     const { orderId } = req.params;
+//     const data = req.body;
+
+//     const order = await Order.findOne({ orderId });
+
+//     if (!order) {
+//       return res.status(404).json({
+//         success: false,
+//         message: "Order not found",
+//       });
+//     }
+
+//     if (order.status === "completed") {
+//       return res.status(400).json({
+//         success: false,
+//         message: "Cannot update completed order",
+//       });
+//     }
+
+//     /* -------------------------
+//        UPDATE PERSON
+//     -------------------------- */
+//     if (data.personDetails) {
+//       order.personDetails = {
+//         ...order.personDetails,
+//         ...data.personDetails,
+//       };
+//     }
+
+//     /* -------------------------
+//        UPDATE ITEMS
+//     -------------------------- */
+//     if (Array.isArray(data.items)) {
+//       order.items = data.items;
+//     }
+
+//     /* -------------------------
+//        UPDATE BOOKING
+//     -------------------------- */
+//     if (data.bookingDetails) {
+//       order.bookingDetails = {
+//         ...order.bookingDetails,
+//         ...data.bookingDetails,
+//       };
+//     }
+
+//     /* -------------------------
+//        UPDATE STATUS
+//     -------------------------- */
+//     if (data.status) {
+//       order.status = data.status;
+
+//       order.bookingDetails.currentStatus = data.status;
+
+//       order.bookingDetails.statusHistory.push({
+//         status: data.status,
+//         timestamp: new Date(),
+//         note: data.notes || "Updated manually",
+//       });
+//     }
+
+//     await order.save();
+
+//     res.json({
+//       success: true,
+//       message: "Order updated successfully",
+//       data: order,
+//     });
+//   } catch (error) {
+//     console.error("UPDATE ORDER ERROR:", error);
+
+//     res.status(500).json({
+//       success: false,
+//       message: error.message || "Failed to update order",
+//     });
+//   }
+// };
+
 exports.updateOrder = async (req, res) => {
   try {
     const { orderId } = req.params;
-    const data = req.body;
+    const { status, note } = req.body;
 
     const order = await Order.findOne({ orderId });
 
@@ -1317,68 +1531,51 @@ exports.updateOrder = async (req, res) => {
       });
     }
 
-    if (order.status === "completed") {
-      return res.status(400).json({
-        success: false,
-        message: "Cannot update completed order",
-      });
-    }
+    /* ---------------- VALID STATUS FLOW ---------------- */
+    const validFlow = {
+      preparing: ["ready"],
+      ready: ["completed"],
+      completed: [],
+    };
 
-    /* -------------------------
-       UPDATE PERSON
-    -------------------------- */
-    if (data.personDetails) {
-      order.personDetails = {
-        ...order.personDetails,
-        ...data.personDetails,
-      };
-    }
+    if (status) {
+      const current = order.status;
 
-    /* -------------------------
-       UPDATE ITEMS
-    -------------------------- */
-    if (Array.isArray(data.items)) {
-      order.items = data.items;
-    }
+      if (
+        !validFlow[current] ||
+        !validFlow[current].includes(status)
+      ) {
+        return res.status(400).json({
+          success: false,
+          message: `Invalid status transition from ${current} to ${status}`,
+        });
+      }
 
-    /* -------------------------
-       UPDATE BOOKING
-    -------------------------- */
-    if (data.bookingDetails) {
-      order.bookingDetails = {
-        ...order.bookingDetails,
-        ...data.bookingDetails,
-      };
-    }
-
-    /* -------------------------
-       UPDATE STATUS
-    -------------------------- */
-    if (data.status) {
-      order.status = data.status;
-
-      order.bookingDetails.currentStatus = data.status;
+      /* ---------------- UPDATE STATUS ---------------- */
+      order.status = status;
+      order.bookingDetails.currentStatus = status;
 
       order.bookingDetails.statusHistory.push({
-        status: data.status,
+        status,
+        note: note || `Status changed to ${status}`,
         timestamp: new Date(),
-        note: data.notes || "Updated manually",
       });
     }
 
+    /* ---------------- SAVE ---------------- */
     await order.save();
 
-    res.json({
+    return res.status(200).json({
       success: true,
-      message: "Order updated successfully",
+      message: "Order updated",
       data: order,
     });
   } catch (error) {
-    console.error("UPDATE ORDER ERROR:", error);
+    console.error("🔥 UPDATE ERROR:", error);
 
-    res.status(500).json({
+    return res.status(500).json({
       success: false,
-      message: error.message || "Failed to update order",
+      message: error.message,
     });
   }
 };
