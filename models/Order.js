@@ -1592,6 +1592,130 @@
 
 
 
+// // models/Order.js
+// const mongoose = require("mongoose");
+
+// /* ---------------- ITEMS ---------------- */
+// const ItemSchema = new mongoose.Schema(
+//   {
+//     id: String,
+//     name: String,
+//     quantity: { type: Number, default: 1 },
+//     originalPrice: { type: Number, default: 0 },
+//     finalPrice: { type: Number, default: 0 },
+//     preparationTime: { type: Number, default: 0 },
+//     customizations: { type: [String], default: [] },
+//     specialInstructions: { type: String, default: "" },
+//   },
+//   { _id: false }
+// );
+
+// /* ---------------- STATUS HISTORY ---------------- */
+// const StatusHistorySchema = new mongoose.Schema(
+//   {
+//     status: {
+//       type: String,
+//       enum: ["confirmed", "preparing", "ready", "completed"],
+//     },
+//     timestamp: {
+//       type: Date,
+//       default: Date.now,
+//     },
+//     note: {
+//       type: String,
+//       default: "",
+//     },
+//   },
+//   { _id: false }
+// );
+
+// /* ---------------- MAIN SCHEMA ---------------- */
+// const OrderSchema = new mongoose.Schema(
+//   {
+//     orderId: {
+//       type: String,
+//       required: true,
+//       unique: true,
+//       index: true,
+//     },
+
+//     // 🔒 prevent duplicate requests safely
+//     requestId: {
+//       type: String,
+//       unique: true,
+//       sparse: true, // ✅ avoids null duplication crash
+//     },
+
+//     autoProgress: {
+//       type: Boolean,
+//       default: false,
+//     },
+
+//     personDetails: {
+//       name: { type: String, required: true },
+//       tableNumber: String,
+//       orderType: {
+//         type: String,
+//         default: "dine-in",
+//       },
+//     },
+
+//     bookingDetails: {
+//       estimatedPickupTime: String,
+//       specialInstructions: String,
+
+//       currentStatus: {
+//         type: String,
+//         enum: ["confirmed", "preparing", "ready", "completed"],
+//         default: "preparing", // ✅ CHANGED HERE
+//       },
+
+//       statusHistory: {
+//         type: [StatusHistorySchema],
+//         default: [
+//           {
+//             status: "preparing", // ✅ CHANGED HERE
+//             note: "Order started (auto)",
+//           },
+//         ],
+//       },
+//     },
+
+//     items: {
+//       type: [ItemSchema],
+//       default: [],
+//     },
+
+//     notes: String,
+
+//     status: {
+//       type: String,
+//       enum: ["confirmed", "preparing", "ready", "completed"],
+//       default: "preparing", // ✅ CHANGED HERE
+//     },
+//   },
+//   {
+//     timestamps: true,
+//   }
+// );
+
+// module.exports = mongoose.model("Order", OrderSchema);
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 // models/Order.js
 const mongoose = require("mongoose");
 
@@ -1635,15 +1759,10 @@ const OrderSchema = new mongoose.Schema(
     orderId: {
       type: String,
       required: true,
-      unique: true,
-      index: true,
     },
 
-    // 🔒 prevent duplicate requests safely
     requestId: {
       type: String,
-      unique: true,
-      sparse: true, // ✅ avoids null duplication crash
     },
 
     autoProgress: {
@@ -1667,15 +1786,15 @@ const OrderSchema = new mongoose.Schema(
       currentStatus: {
         type: String,
         enum: ["confirmed", "preparing", "ready", "completed"],
-        default: "preparing", // ✅ CHANGED HERE
+        default: "preparing",
       },
 
       statusHistory: {
         type: [StatusHistorySchema],
         default: [
           {
-            status: "preparing", // ✅ CHANGED HERE
-            note: "Order started (auto)",
+            status: "preparing",
+            note: "Order started",
           },
         ],
       },
@@ -1691,11 +1810,28 @@ const OrderSchema = new mongoose.Schema(
     status: {
       type: String,
       enum: ["confirmed", "preparing", "ready", "completed"],
-      default: "preparing", // ✅ CHANGED HERE
+      default: "preparing",
     },
   },
   {
     timestamps: true,
+    autoIndex: false, // 🔥 prevents hidden index bugs
+  }
+);
+
+/* ---------------- MANUAL SAFE INDEXES ---------------- */
+
+// ✅ Unique orderId (always required)
+OrderSchema.index({ orderId: 1 }, { unique: true });
+
+// ✅ Idempotency ONLY when requestId exists
+OrderSchema.index(
+  { requestId: 1 },
+  {
+    unique: true,
+    partialFilterExpression: {
+      requestId: { $exists: true, $ne: null },
+    },
   }
 );
 
