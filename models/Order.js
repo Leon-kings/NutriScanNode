@@ -1052,63 +1052,399 @@
 
 // module.exports = mongoose.model("Order", OrderSchema);
 
+// const mongoose = require("mongoose");
+// const { randomUUID } = require("crypto");
+
+// /* -------------------------
+//    ITEM
+// -------------------------- */
+// const ItemSchema = new mongoose.Schema({
+//   id: String,
+//   name: String,
+//   quantity: { type: Number, default: 1 },
+//   originalPrice: Number,
+//   finalPrice: Number,
+//   preparationTime: Number,
+//   customizations: { type: [String], default: [] },
+//   specialInstructions: { type: String, default: "" },
+// });
+
+// /* -------------------------
+//    PLATE
+// -------------------------- */
+// const CustomizedPlateSchema = new mongoose.Schema({
+//   plateId: String,
+//   originalName: String,
+//   customizations: { type: [String], default: [] },
+//   specialInstructions: { type: String, default: "" },
+// });
+
+// /* -------------------------
+//    BOOKING DETAILS
+// -------------------------- */
+// const BookingDetailsSchema = new mongoose.Schema({
+//   estimatedPickupTime: String,
+//   specialInstructions: String,
+// });
+
+// /* -------------------------
+//    PERSON DETAILS
+// -------------------------- */
+// const PersonDetailsSchema = new mongoose.Schema({
+//   name: { type: String, required: true },
+//   orderType: {
+//     type: String,
+//     enum: ["dine-in", "takeaway", "delivery"],
+//     default: "dine-in",
+//   },
+//   tableNumber: String,
+// });
+
+// /* -------------------------
+//    ORDER
+// -------------------------- */
+// const OrderSchema = new mongoose.Schema(
+//   {
+//     orderId: {
+//       type: String,
+//       unique: true, // ONLY UNIQUE FIELD
+//       required: true,
+//       index: true,
+//     },
+
+//     autoProgress: {
+//       type: Boolean,
+//       default: false,
+//     },
+
+//     bookingDetails: BookingDetailsSchema,
+//     customizedPlates: { type: [CustomizedPlateSchema], default: [] },
+//     items: { type: [ItemSchema], default: [] },
+//     notes: String,
+//     personDetails: PersonDetailsSchema,
+//   },
+//   { timestamps: true, strict: true },
+// );
+
+// /* -------------------------
+//    SAFE ID GENERATION
+// -------------------------- */
+// OrderSchema.statics.generateOrderId = function () {
+//   return `ORD-${Date.now()}-${randomUUID()}`;
+// };
+
+// /* -------------------------
+//    AUTO SET ORDER ID (SAFE)
+// -------------------------- */
+// OrderSchema.pre("validate", function (next) {
+//   if (!this.orderId) {
+//     this.orderId = this.constructor.generateOrderId();
+//   }
+//   next();
+// });
+
+// /* -------------------------
+//    REMOVE OLD BAD INDEXES (IMPORTANT)
+// -------------------------- */
+// OrderSchema.statics.fixIndexes = async function () {
+//   const indexes = await this.collection.indexes();
+
+//   for (const idx of indexes) {
+//     // remove broken or legacy booking indexes
+//     if (idx.name.includes("bookingDetails") || idx.name.includes("bookingId")) {
+//       await this.collection.dropIndex(idx.name);
+//       console.log("Removed index:", idx.name);
+//     }
+//   }
+// };
+
+// module.exports = mongoose.model("Order", OrderSchema);
+
+
+
+
+
+
+
+
+
+// const mongoose = require("mongoose");
+// const { randomUUID } = require("crypto");
+
+// /* -------------------------
+//    ITEM SCHEMA
+// -------------------------- */
+// const ItemSchema = new mongoose.Schema(
+//   {
+//     id: { type: String },
+//     name: { type: String },
+
+//     quantity: { type: Number, default: 1 },
+
+//     originalPrice: { type: Number, default: 0 },
+//     finalPrice: { type: Number, default: 0 },
+
+//     preparationTime: { type: Number, default: 0 },
+
+//     customizations: {
+//       type: [String],
+//       default: [],
+//     },
+
+//     specialInstructions: {
+//       type: String,
+//       default: "",
+//     },
+//   },
+//   { _id: false },
+// );
+
+// /* -------------------------
+//    CUSTOMIZED PLATE SCHEMA
+// -------------------------- */
+// const CustomizedPlateSchema = new mongoose.Schema(
+//   {
+//     plateId: { type: String },
+//     originalName: { type: String },
+
+//     customizations: {
+//       type: [String],
+//       default: [],
+//     },
+
+//     specialInstructions: {
+//       type: String,
+//       default: "",
+//     },
+//   },
+//   { _id: false },
+// );
+
+// /* -------------------------
+//    BOOKING DETAILS
+// -------------------------- */
+// const BookingDetailsSchema = new mongoose.Schema(
+//   {
+//     estimatedPickupTime: {
+//       type: String,
+//       default: "",
+//     },
+
+//     specialInstructions: {
+//       type: String,
+//       default: "",
+//     },
+//   },
+//   { _id: false },
+// );
+
+// /* -------------------------
+//    PERSON DETAILS
+// -------------------------- */
+// const PersonDetailsSchema = new mongoose.Schema(
+//   {
+//     name: {
+//       type: String,
+//       required: true,
+//     },
+
+//     orderType: {
+//       type: String,
+//       enum: ["dine-in", "takeaway", "delivery"],
+//       default: "dine-in",
+//     },
+
+//     tableNumber: {
+//       type: String,
+//       default: "",
+//     },
+//   },
+//   { _id: false },
+// );
+
+// /* -------------------------
+//    MAIN ORDER SCHEMA
+// -------------------------- */
+// const OrderSchema = new mongoose.Schema(
+//   {
+//     /* ✅ ONLY UNIQUE FIELD */
+//     orderId: {
+//       type: String,
+//       required: true,
+//       unique: true,
+//       index: true,
+//     },
+
+//     autoProgress: {
+//       type: Boolean,
+//       default: false,
+//     },
+
+//     bookingDetails: {
+//       type: BookingDetailsSchema,
+//       default: {},
+//     },
+
+//     customizedPlates: {
+//       type: [CustomizedPlateSchema],
+//       default: [],
+//     },
+
+//     items: {
+//       type: [ItemSchema],
+//       default: [],
+//     },
+
+//     notes: {
+//       type: String,
+//       default: "",
+//     },
+
+//     personDetails: {
+//       type: PersonDetailsSchema,
+//       required: true,
+//     },
+//   },
+//   {
+//     timestamps: true,
+//     strict: true, // prevents unknown fields
+//   },
+// );
+
+// /* -------------------------
+//    SAFE ORDER ID GENERATION
+// -------------------------- */
+// OrderSchema.statics.generateOrderId = function () {
+//   return `ORD-${Date.now()}-${randomUUID()}`;
+// };
+
+// /* -------------------------
+//    AUTO GENERATE ID (NO DUPLICATES)
+// -------------------------- */
+// OrderSchema.pre("validate", function (next) {
+//   if (!this.orderId) {
+//     this.orderId = this.constructor.generateOrderId();
+//   }
+//   next();
+// });
+
+// /* -------------------------
+//    CLEANUP BAD INDEXES (CRITICAL)
+// -------------------------- */
+// OrderSchema.statics.cleanupIndexes = async function () {
+//   const indexes = await this.collection.indexes();
+
+//   for (const idx of indexes) {
+//     // remove any dangerous or legacy indexes
+//     if (idx.name.includes("bookingId") || idx.name.includes("bookingDetails")) {
+//       console.log("⚠️ Dropping bad index:", idx.name);
+//       await this.collection.dropIndex(idx.name);
+//     }
+//   }
+// };
+
+// module.exports = mongoose.model("Order", OrderSchema);
+
+
+
+
+
+
+
+
+
+// models/Order.js
 const mongoose = require("mongoose");
-const { randomUUID } = require("crypto");
 
 /* -------------------------
    ITEM
 -------------------------- */
-const ItemSchema = new mongoose.Schema({
-  id: String,
-  name: String,
-  quantity: { type: Number, default: 1 },
-  originalPrice: Number,
-  finalPrice: Number,
-  preparationTime: Number,
-  customizations: { type: [String], default: [] },
-  specialInstructions: { type: String, default: "" },
-});
+const ItemSchema = new mongoose.Schema(
+  {
+    id: String,
+    name: String,
+    quantity: { type: Number, default: 1 },
+    originalPrice: { type: Number, default: 0 },
+    finalPrice: { type: Number, default: 0 },
+    preparationTime: { type: Number, default: 0 },
+    customizations: { type: [String], default: [] },
+    specialInstructions: { type: String, default: "" },
+  },
+  { _id: false }
+);
 
 /* -------------------------
    PLATE
 -------------------------- */
-const CustomizedPlateSchema = new mongoose.Schema({
-  plateId: String,
-  originalName: String,
-  customizations: { type: [String], default: [] },
-  specialInstructions: { type: String, default: "" },
-});
-
-/* -------------------------
-   BOOKING DETAILS
--------------------------- */
-const BookingDetailsSchema = new mongoose.Schema({
-  estimatedPickupTime: String,
-  specialInstructions: String,
-});
-
-/* -------------------------
-   PERSON DETAILS
--------------------------- */
-const PersonDetailsSchema = new mongoose.Schema({
-  name: { type: String, required: true },
-  orderType: {
-    type: String,
-    enum: ["dine-in", "takeaway", "delivery"],
-    default: "dine-in",
+const PlateSchema = new mongoose.Schema(
+  {
+    plateId: String,
+    originalName: String,
+    customizations: { type: [String], default: [] },
+    specialInstructions: { type: String, default: "" },
   },
-  tableNumber: String,
-});
+  { _id: false }
+);
 
 /* -------------------------
-   ORDER
+   STATUS HISTORY
+-------------------------- */
+const StatusHistorySchema = new mongoose.Schema(
+  {
+    status: String,
+    timestamp: Date,
+    note: String,
+  },
+  { _id: false }
+);
+
+/* -------------------------
+   BOOKING
+-------------------------- */
+const BookingSchema = new mongoose.Schema(
+  {
+    estimatedPickupTime: String,
+    specialInstructions: String,
+
+    currentStatus: {
+      type: String,
+      enum: ["confirmed", "preparing", "ready", "completed"],
+      default: "confirmed",
+    },
+
+    statusHistory: {
+      type: [StatusHistorySchema],
+      default: [],
+    },
+  },
+  { _id: false }
+);
+
+/* -------------------------
+   PERSON
+-------------------------- */
+const PersonSchema = new mongoose.Schema(
+  {
+    name: { type: String, required: true },
+    orderType: {
+      type: String,
+      enum: ["dine-in", "takeaway", "delivery"],
+      default: "dine-in",
+    },
+    tableNumber: String,
+  },
+  { _id: false }
+);
+
+/* -------------------------
+   MAIN ORDER
 -------------------------- */
 const OrderSchema = new mongoose.Schema(
   {
     orderId: {
       type: String,
-      unique: true, // ONLY UNIQUE FIELD
       required: true,
+      unique: true,
       index: true,
     },
 
@@ -1117,45 +1453,41 @@ const OrderSchema = new mongoose.Schema(
       default: false,
     },
 
-    bookingDetails: BookingDetailsSchema,
-    customizedPlates: { type: [CustomizedPlateSchema], default: [] },
-    items: { type: [ItemSchema], default: [] },
-    notes: String,
-    personDetails: PersonDetailsSchema,
+    status: {
+      type: String,
+      enum: ["confirmed", "preparing", "ready", "completed"],
+      default: "confirmed",
+    },
+
+    bookingDetails: {
+      type: BookingSchema,
+      default: {},
+    },
+
+    customizedPlates: {
+      type: [PlateSchema],
+      default: [],
+    },
+
+    items: {
+      type: [ItemSchema],
+      default: [],
+    },
+
+    notes: {
+      type: String,
+      default: "",
+    },
+
+    personDetails: {
+      type: PersonSchema,
+      required: true,
+    },
   },
-  { timestamps: true, strict: true },
+  {
+    timestamps: true,
+    strict: true,
+  }
 );
-
-/* -------------------------
-   SAFE ID GENERATION
--------------------------- */
-OrderSchema.statics.generateOrderId = function () {
-  return `ORD-${Date.now()}-${randomUUID()}`;
-};
-
-/* -------------------------
-   AUTO SET ORDER ID (SAFE)
--------------------------- */
-OrderSchema.pre("validate", function (next) {
-  if (!this.orderId) {
-    this.orderId = this.constructor.generateOrderId();
-  }
-  next();
-});
-
-/* -------------------------
-   REMOVE OLD BAD INDEXES (IMPORTANT)
--------------------------- */
-OrderSchema.statics.fixIndexes = async function () {
-  const indexes = await this.collection.indexes();
-
-  for (const idx of indexes) {
-    // remove broken or legacy booking indexes
-    if (idx.name.includes("bookingDetails") || idx.name.includes("bookingId")) {
-      await this.collection.dropIndex(idx.name);
-      console.log("Removed index:", idx.name);
-    }
-  }
-};
 
 module.exports = mongoose.model("Order", OrderSchema);
