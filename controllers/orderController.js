@@ -987,17 +987,6 @@
 //   }
 // };
 
-
-
-
-
-
-
-
-
-
-
-
 const Order = require("../models/Order");
 const OrderStatusManager = require("../utils/orderStatusManager");
 const { randomUUID } = require("crypto");
@@ -1138,29 +1127,37 @@ exports.createOrder = async (req, res) => {
     }
 
     /* -------------------------
-       IDEMPOTENCY KEY (CRITICAL)
+       IDEMPOTENCY KEY (FIXED)
     -------------------------- */
     const requestId =
-      data.requestId || req.headers["x-request-id"] || randomUUID();
+      data.requestId || req.headers["x-request-id"];
+
+    if (!requestId) {
+      return res.status(400).json({
+        success: false,
+        message: "requestId is required",
+      });
+    }
 
     console.log("🧠 requestId:", requestId);
 
-    // ✅ Prevent duplicate request execution
+    // ✅ PROPER duplicate check BEFORE saving
     const existingRequest = await Order.findOne({ requestId });
+
     if (existingRequest) {
-      console.log("⚠️ Duplicate request detected → returning existing order");
+      console.log("⚠️ Duplicate request detected");
 
       return res.status(200).json({
         success: true,
-        message: "Order already created (idempotent)",
+        message: "Order already exists (idempotent)",
         data: existingRequest,
       });
     }
 
     /* -------------------------
-       GENERATE UNIQUE ORDER ID
+       ORDER ID (SAFER)
     -------------------------- */
-    const orderId = `ORD-${Date.now()}-${randomUUID()}`;
+    const orderId = `ORD-${Date.now()}-${Math.floor(Math.random() * 1e6)}`;
 
     console.log("🆔 orderId:", orderId);
 
@@ -1189,15 +1186,14 @@ exports.createOrder = async (req, res) => {
 
       personDetails: {
         name: data.customerName || data.personDetails?.name,
-        tableNumber:
-          data.tableNumber || data.personDetails?.tableNumber || "",
-        orderType:
-          data.orderType || data.personDetails?.orderType || "dine-in",
+        tableNumber: data.tableNumber || data.personDetails?.tableNumber || "",
+        orderType: data.orderType || data.personDetails?.orderType || "dine-in",
       },
 
       bookingDetails: {
         estimatedPickupTime:
           data.bookingDetails?.estimatedPickupTime || "",
+
         specialInstructions:
           data.bookingDetails?.specialInstructions || data.notes || "",
 
@@ -1218,50 +1214,42 @@ exports.createOrder = async (req, res) => {
     });
 
     /* -------------------------
-       SAFE SAVE (RACE CONDITION PROTECTION)
+       SAVE WITH RACE SAFETY
     -------------------------- */
     try {
       await order.save();
       console.log("✅ Order saved successfully");
+
+      return res.status(201).json({
+        success: true,
+        message: "Order created successfully",
+        data: order,
+      });
+
     } catch (err) {
       console.error("❌ SAVE ERROR:", err);
 
-      // 🔥 If duplicate happens at DB level → recover safely
       if (err.code === 11000) {
-        console.warn("⚠️ Duplicate detected at DB level");
+        const key = Object.keys(err.keyPattern || {})[0];
+
+        console.log("Duplicate key field:", key);
 
         const existing = await Order.findOne({
-          $or: [{ requestId }, { orderId }],
+          [key]: err.keyValue[key],
         });
 
-        if (existing) {
-          return res.status(200).json({
-            success: true,
-            message: "Recovered duplicate order",
-            data: existing,
-          });
-        }
-
-        return res.status(409).json({
-          success: false,
-          message: "Duplicate order detected. Retry safely.",
-          details: err.keyValue,
+        return res.status(200).json({
+          success: true,
+          message: "Recovered duplicate order safely",
+          data: existing,
         });
       }
 
       throw err;
     }
 
-    /* -------------------------
-       RESPONSE
-    -------------------------- */
-    return res.status(201).json({
-      success: true,
-      message: "Order created successfully",
-      data: order,
-    });
   } catch (error) {
-    console.error("🔥 CREATE ORDER FATAL ERROR:", error);
+    console.error("🔥 CREATE ORDER ERROR:", error);
 
     return res.status(500).json({
       success: false,
