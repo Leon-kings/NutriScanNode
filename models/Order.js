@@ -1160,14 +1160,6 @@
 
 // module.exports = mongoose.model("Order", OrderSchema);
 
-
-
-
-
-
-
-
-
 // const mongoose = require("mongoose");
 // const { randomUUID } = require("crypto");
 
@@ -1353,12 +1345,164 @@
 
 
 
+
+
+
+
+// // models/Order.js
+// const mongoose = require("mongoose");
+
+// /* -------------------------
+//    ITEM
+// -------------------------- */
+// const ItemSchema = new mongoose.Schema(
+//   {
+//     id: String,
+//     name: String,
+//     quantity: { type: Number, default: 1 },
+//     originalPrice: { type: Number, default: 0 },
+//     finalPrice: { type: Number, default: 0 },
+//     preparationTime: { type: Number, default: 0 },
+//     customizations: { type: [String], default: [] },
+//     specialInstructions: { type: String, default: "" },
+//   },
+//   { _id: false },
+// );
+
+// /* -------------------------
+//    PLATE
+// -------------------------- */
+// const PlateSchema = new mongoose.Schema(
+//   {
+//     plateId: String,
+//     originalName: String,
+//     customizations: { type: [String], default: [] },
+//     specialInstructions: { type: String, default: "" },
+//   },
+//   { _id: false },
+// );
+
+// /* -------------------------
+//    STATUS HISTORY
+// -------------------------- */
+// const StatusHistorySchema = new mongoose.Schema(
+//   {
+//     status: String,
+//     timestamp: Date,
+//     note: String,
+//   },
+//   { _id: false },
+// );
+
+// /* -------------------------
+//    BOOKING
+// -------------------------- */
+// const BookingSchema = new mongoose.Schema(
+//   {
+//     estimatedPickupTime: String,
+//     specialInstructions: String,
+
+//     currentStatus: {
+//       type: String,
+//       enum: ["confirmed", "preparing", "ready", "completed"],
+//       default: "confirmed",
+//     },
+
+//     statusHistory: {
+//       type: [StatusHistorySchema],
+//       default: [],
+//     },
+//   },
+//   { _id: false },
+// );
+
+// /* -------------------------
+//    PERSON
+// -------------------------- */
+// const PersonSchema = new mongoose.Schema(
+//   {
+//     name: { type: String, required: true },
+//     orderType: {
+//       type: String,
+//       enum: ["dine-in", "takeaway", "delivery"],
+//       default: "dine-in",
+//     },
+//     tableNumber: String,
+//   },
+//   { _id: false },
+// );
+
+// /* -------------------------
+//    MAIN ORDER
+// -------------------------- */
+// const OrderSchema = new mongoose.Schema(
+//   {
+//     orderId: {
+//       type: String,
+//       required: true,
+//       unique: true,
+//       index: true,
+//     },
+
+//     autoProgress: {
+//       type: Boolean,
+//       default: false,
+//     },
+
+//     status: {
+//       type: String,
+//       enum: ["confirmed", "preparing", "ready", "completed"],
+//       default: "confirmed",
+//     },
+
+//     bookingDetails: {
+//       type: BookingSchema,
+//       default: {},
+//     },
+
+//     customizedPlates: {
+//       type: [PlateSchema],
+//       default: [],
+//     },
+
+//     items: {
+//       type: [ItemSchema],
+//       default: [],
+//     },
+
+//     notes: {
+//       type: String,
+//       default: "",
+//     },
+
+//     personDetails: {
+//       type: PersonSchema,
+//       required: true,
+//     },
+//   },
+//   {
+//     timestamps: true,
+//     strict: true,
+//   },
+// );
+
+// module.exports = mongoose.model("Order", OrderSchema);
+
+
+
+
+
+
+
+
+
+
+
+
+
 // models/Order.js
 const mongoose = require("mongoose");
 
-/* -------------------------
-   ITEM
--------------------------- */
 const ItemSchema = new mongoose.Schema(
   {
     id: String,
@@ -1373,22 +1517,6 @@ const ItemSchema = new mongoose.Schema(
   { _id: false }
 );
 
-/* -------------------------
-   PLATE
--------------------------- */
-const PlateSchema = new mongoose.Schema(
-  {
-    plateId: String,
-    originalName: String,
-    customizations: { type: [String], default: [] },
-    specialInstructions: { type: String, default: "" },
-  },
-  { _id: false }
-);
-
-/* -------------------------
-   STATUS HISTORY
--------------------------- */
 const StatusHistorySchema = new mongoose.Schema(
   {
     status: String,
@@ -1398,75 +1526,42 @@ const StatusHistorySchema = new mongoose.Schema(
   { _id: false }
 );
 
-/* -------------------------
-   BOOKING
--------------------------- */
-const BookingSchema = new mongoose.Schema(
-  {
-    estimatedPickupTime: String,
-    specialInstructions: String,
-
-    currentStatus: {
-      type: String,
-      enum: ["confirmed", "preparing", "ready", "completed"],
-      default: "confirmed",
-    },
-
-    statusHistory: {
-      type: [StatusHistorySchema],
-      default: [],
-    },
-  },
-  { _id: false }
-);
-
-/* -------------------------
-   PERSON
--------------------------- */
-const PersonSchema = new mongoose.Schema(
-  {
-    name: { type: String, required: true },
-    orderType: {
-      type: String,
-      enum: ["dine-in", "takeaway", "delivery"],
-      default: "dine-in",
-    },
-    tableNumber: String,
-  },
-  { _id: false }
-);
-
-/* -------------------------
-   MAIN ORDER
--------------------------- */
 const OrderSchema = new mongoose.Schema(
   {
     orderId: {
       type: String,
       required: true,
-      unique: true,
+      unique: true, // DB-level protection
       index: true,
     },
 
-    autoProgress: {
-      type: Boolean,
-      default: false,
+    // 🔒 prevents duplicate requests (idempotency)
+    requestId: {
+      type: String,
+      index: true,
     },
 
-    status: {
-      type: String,
-      enum: ["confirmed", "preparing", "ready", "completed"],
-      default: "confirmed",
+    autoProgress: Boolean,
+
+    personDetails: {
+      name: { type: String, required: true },
+      tableNumber: String,
+      orderType: String,
     },
 
     bookingDetails: {
-      type: BookingSchema,
-      default: {},
-    },
+      estimatedPickupTime: String,
+      specialInstructions: String,
 
-    customizedPlates: {
-      type: [PlateSchema],
-      default: [],
+      currentStatus: {
+        type: String,
+        default: "confirmed",
+      },
+
+      statusHistory: {
+        type: [StatusHistorySchema],
+        default: [],
+      },
     },
 
     items: {
@@ -1474,20 +1569,14 @@ const OrderSchema = new mongoose.Schema(
       default: [],
     },
 
-    notes: {
-      type: String,
-      default: "",
-    },
+    notes: String,
 
-    personDetails: {
-      type: PersonSchema,
-      required: true,
+    status: {
+      type: String,
+      default: "confirmed",
     },
   },
-  {
-    timestamps: true,
-    strict: true,
-  }
+  { timestamps: true, strict: true }
 );
 
 module.exports = mongoose.model("Order", OrderSchema);
