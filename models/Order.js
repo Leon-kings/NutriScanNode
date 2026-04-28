@@ -1848,9 +1848,159 @@
 
 
 
+// const mongoose = require("mongoose");
+
+// /* ---------------- ITEMS ---------------- */
+// const ItemSchema = new mongoose.Schema(
+//   {
+//     id: String,
+//     name: String,
+//     quantity: { type: Number, default: 1 },
+//     originalPrice: { type: Number, default: 0 },
+//     finalPrice: { type: Number, default: 0 },
+//     preparationTime: { type: Number, default: 0 },
+//     customizations: { type: [String], default: [] },
+//     specialInstructions: { type: String, default: "" },
+//   },
+//   { _id: false }
+// );
+
+// /* ---------------- STATUS HISTORY ---------------- */
+// const StatusHistorySchema = new mongoose.Schema(
+//   {
+//     status: {
+//       type: String,
+//       enum: ["confirmed", "preparing", "ready", "completed"],
+//     },
+//     timestamp: {
+//       type: Date,
+//       default: Date.now,
+//     },
+//     note: {
+//       type: String,
+//       default: "",
+//     },
+//   },
+//   { _id: false }
+// );
+
+// /* ---------------- MAIN SCHEMA ---------------- */
+// const OrderSchema = new mongoose.Schema(
+//   {
+//     /* ---------------- ORDER ID (SAFE UNIQUE) ---------------- */
+//     orderId: {
+//       type: String,
+//       required: true,
+//       unique: true,
+//       index: true,
+//     },
+
+//     /* ---------------- IDEMPOTENCY KEY ---------------- */
+//     requestId: {
+//       type: String,
+//       index: true,
+//       unique: true,
+//       sparse: true, // 🔥 prevents null duplication crash
+//     },
+
+//     autoProgress: {
+//       type: Boolean,
+//       default: false,
+//     },
+
+//     personDetails: {
+//       name: { type: String, required: true },
+//       tableNumber: String,
+//       orderType: {
+//         type: String,
+//         default: "dine-in",
+//       },
+//     },
+
+//     bookingDetails: {
+//       estimatedPickupTime: String,
+//       specialInstructions: String,
+
+//       currentStatus: {
+//         type: String,
+//         enum: ["confirmed", "preparing", "ready", "completed"],
+//         default: "preparing",
+//       },
+
+//       statusHistory: {
+//         type: [StatusHistorySchema],
+//         default: [
+//           {
+//             status: "preparing",
+//             note: "Order started",
+//           },
+//         ],
+//       },
+//     },
+
+//     items: {
+//       type: [ItemSchema],
+//       default: [],
+//     },
+
+//     notes: String,
+
+//     status: {
+//       type: String,
+//       enum: ["confirmed", "preparing", "ready", "completed"],
+//       default: "preparing",
+//     },
+//   },
+//   {
+//     timestamps: true,
+
+//     // 🔥 IMPORTANT: prevents MongoDB auto-creating unwanted indexes
+//     autoIndex: false,
+//   }
+// );
+
+// /* ---------------- SAFE INDEX DEFINITIONS ---------------- */
+
+// // Order must always be unique
+// OrderSchema.index({ orderId: 1 }, { unique: true });
+
+// // Idempotency protection (ONLY when requestId exists)
+// OrderSchema.index(
+//   { requestId: 1 },
+//   {
+//     unique: true,
+//     partialFilterExpression: {
+//       requestId: { $exists: true, $ne: null },
+//     },
+//   }
+// );
+
+// /* ---------------- SAFETY GUARD (OPTIONAL BUT POWERFUL) ---------------- */
+// /*
+// Prevents accidental insertion of broken bookingDetails fields
+// that might come from old frontend versions.
+// */
+// OrderSchema.pre("save", function (next) {
+//   if (this.bookingDetails && this.bookingDetails.orderId !== undefined) {
+//     delete this.bookingDetails.orderId; // 🔥 removes ghost field
+//   }
+//   next();
+// });
+
+// module.exports = mongoose.model("Order", OrderSchema);
+
+
+
+
+
+
+
+
+
+
 const mongoose = require("mongoose");
 
-/* ---------------- ITEMS ---------------- */
+/* ---------------- ITEM ---------------- */
 const ItemSchema = new mongoose.Schema(
   {
     id: String,
@@ -1865,56 +2015,38 @@ const ItemSchema = new mongoose.Schema(
   { _id: false }
 );
 
-/* ---------------- STATUS HISTORY ---------------- */
+/* ---------------- STATUS ---------------- */
 const StatusHistorySchema = new mongoose.Schema(
   {
     status: {
       type: String,
-      enum: ["confirmed", "preparing", "ready", "completed"],
+      enum: ["preparing", "ready", "completed"],
+      required: true,
     },
-    timestamp: {
-      type: Date,
-      default: Date.now,
-    },
-    note: {
-      type: String,
-      default: "",
-    },
+    timestamp: { type: Date, default: Date.now },
+    note: String,
   },
   { _id: false }
 );
 
-/* ---------------- MAIN SCHEMA ---------------- */
+/* ---------------- ORDER ---------------- */
 const OrderSchema = new mongoose.Schema(
   {
-    /* ---------------- ORDER ID (SAFE UNIQUE) ---------------- */
     orderId: {
       type: String,
       required: true,
       unique: true,
-      index: true,
     },
 
-    /* ---------------- IDEMPOTENCY KEY ---------------- */
     requestId: {
       type: String,
       index: true,
-      unique: true,
-      sparse: true, // 🔥 prevents null duplication crash
-    },
-
-    autoProgress: {
-      type: Boolean,
-      default: false,
     },
 
     personDetails: {
       name: { type: String, required: true },
       tableNumber: String,
-      orderType: {
-        type: String,
-        default: "dine-in",
-      },
+      orderType: { type: String, default: "dine-in" },
     },
 
     bookingDetails: {
@@ -1923,7 +2055,7 @@ const OrderSchema = new mongoose.Schema(
 
       currentStatus: {
         type: String,
-        enum: ["confirmed", "preparing", "ready", "completed"],
+        enum: ["preparing", "ready", "completed"],
         default: "preparing",
       },
 
@@ -1947,44 +2079,22 @@ const OrderSchema = new mongoose.Schema(
 
     status: {
       type: String,
-      enum: ["confirmed", "preparing", "ready", "completed"],
+      enum: ["preparing", "ready", "completed"],
       default: "preparing",
     },
   },
   {
     timestamps: true,
-
-    // 🔥 IMPORTANT: prevents MongoDB auto-creating unwanted indexes
-    autoIndex: false,
+    autoIndex: false, // 🔥 prevents hidden MongoDB index bugs
   }
 );
 
-/* ---------------- SAFE INDEX DEFINITIONS ---------------- */
+/* ---------------- SAFE INDEXES ---------------- */
 
-// Order must always be unique
+// Only ONE strict unique field
 OrderSchema.index({ orderId: 1 }, { unique: true });
 
-// Idempotency protection (ONLY when requestId exists)
-OrderSchema.index(
-  { requestId: 1 },
-  {
-    unique: true,
-    partialFilterExpression: {
-      requestId: { $exists: true, $ne: null },
-    },
-  }
-);
-
-/* ---------------- SAFETY GUARD (OPTIONAL BUT POWERFUL) ---------------- */
-/*
-Prevents accidental insertion of broken bookingDetails fields
-that might come from old frontend versions.
-*/
-OrderSchema.pre("save", function (next) {
-  if (this.bookingDetails && this.bookingDetails.orderId !== undefined) {
-    delete this.bookingDetails.orderId; // 🔥 removes ghost field
-  }
-  next();
-});
+// Idempotency key (safe, non-crashing)
+OrderSchema.index({ requestId: 1 });
 
 module.exports = mongoose.model("Order", OrderSchema);

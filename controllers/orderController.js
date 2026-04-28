@@ -1113,166 +1113,11 @@ const { randomUUID } = require("crypto");
 //   }
 // };
 
-// exports.createOrder = async (req, res) => {
-//   try {
-//     const data = req.body;
-
-//     console.log("📥 Incoming order request");
-
-//     /* -------------------------
-//        VALIDATION
-//     -------------------------- */
-//     if (!data.personDetails?.name && !data.customerName) {
-//       return res.status(400).json({
-//         success: false,
-//         message: "Customer name is required",
-//       });
-//     }
-
-//     if (!Array.isArray(data.items) || data.items.length === 0) {
-//       return res.status(400).json({
-//         success: false,
-//         message: "Items must be provided",
-//       });
-//     }
-
-//     /* -------------------------
-//        IDEMPOTENCY KEY (FIXED)
-//     -------------------------- */
-//     const requestId =
-//       data.requestId || req.headers["x-request-id"];
-
-//     if (!requestId) {
-//       return res.status(400).json({
-//         success: false,
-//         message: "requestId is required",
-//       });
-//     }
-
-//     console.log("🧠 requestId:", requestId);
-
-//     // ✅ PROPER duplicate check BEFORE saving
-//     const existingRequest = await Order.findOne({ requestId });
-
-//     if (existingRequest) {
-//       console.log("⚠️ Duplicate request detected");
-
-//       return res.status(200).json({
-//         success: true,
-//         message: "Order already exists (idempotent)",
-//         data: existingRequest,
-//       });
-//     }
-
-//     /* -------------------------
-//        ORDER ID (SAFER)
-//     -------------------------- */
-//     const orderId = `ORD-${Date.now()}-${Math.floor(Math.random() * 1e6)}`;
-
-//     console.log("🆔 orderId:", orderId);
-
-//     /* -------------------------
-//        NORMALIZE ITEMS
-//     -------------------------- */
-//     const items = data.items.map((item) => ({
-//       id: item.id,
-//       name: item.name,
-//       quantity: item.quantity || 1,
-//       originalPrice: item.originalPrice || 0,
-//       finalPrice: item.finalPrice || 0,
-//       preparationTime: item.preparationTime || 0,
-//       customizations: item.customizations || [],
-//       specialInstructions: item.specialInstructions || "",
-//     }));
-
-//     /* -------------------------
-//        CREATE ORDER
-//     -------------------------- */
-//     const order = new Order({
-//       orderId,
-//       requestId,
-
-//       autoProgress: data.autoProgress || false,
-
-//       personDetails: {
-//         name: data.customerName || data.personDetails?.name,
-//         tableNumber: data.tableNumber || data.personDetails?.tableNumber || "",
-//         orderType: data.orderType || data.personDetails?.orderType || "dine-in",
-//       },
-
-//       bookingDetails: {
-//         estimatedPickupTime:
-//           data.bookingDetails?.estimatedPickupTime || "",
-
-//         specialInstructions:
-//           data.bookingDetails?.specialInstructions || data.notes || "",
-
-//         currentStatus: "confirmed",
-
-//         statusHistory: [
-//           {
-//             status: "confirmed",
-//             timestamp: new Date(),
-//             note: "Order created",
-//           },
-//         ],
-//       },
-
-//       items,
-//       notes: data.notes || "",
-//       status: "confirmed",
-//     });
-
-//     /* -------------------------
-//        SAVE WITH RACE SAFETY
-//     -------------------------- */
-//     try {
-//       await order.save();
-//       console.log("✅ Order saved successfully");
-
-//       return res.status(201).json({
-//         success: true,
-//         message: "Order created successfully",
-//         data: order,
-//       });
-
-//     } catch (err) {
-//       console.error("❌ SAVE ERROR:", err);
-
-//       if (err.code === 11000) {
-//         const key = Object.keys(err.keyPattern || {})[0];
-
-//         console.log("Duplicate key field:", key);
-
-//         const existing = await Order.findOne({
-//           [key]: err.keyValue[key],
-//         });
-
-//         return res.status(200).json({
-//           success: true,
-//           message: "Recovered duplicate order safely",
-//           data: existing,
-//         });
-//       }
-
-//       throw err;
-//     }
-
-//   } catch (error) {
-//     console.error("🔥 CREATE ORDER ERROR:", error);
-
-//     return res.status(500).json({
-//       success: false,
-//       message: error.message || "Failed to create order",
-//     });
-//   }
-// };
 
 // exports.createOrder = async (req, res) => {
 //   try {
 //     const data = req.body;
 
-//     /* ---------------- VALIDATION ---------------- */
 //     if (!data.personDetails?.name) {
 //       return res.status(400).json({
 //         success: false,
@@ -1283,106 +1128,65 @@ const { randomUUID } = require("crypto");
 //     if (!Array.isArray(data.items) || data.items.length === 0) {
 //       return res.status(400).json({
 //         success: false,
-//         message: "Items must be provided",
+//         message: "Items required",
 //       });
 //     }
 
-//     /* ---------------- REQUEST ID ---------------- */
-//     let requestId =
-//       data.requestId || req.headers["x-request-id"];
+//     /* ---------------- ID GENERATION ---------------- */
+//     const requestId =
+//       data.requestId ||
+//       req.headers["x-request-id"] ||
+//       crypto.randomUUID();
 
-//     if (!requestId) {
-//       requestId = crypto.randomUUID(); // fallback safety
-//     }
-
-//     console.log("🧠 requestId:", requestId);
-
-//     /* ---------------- CHECK DUPLICATE (FAST PATH) ---------------- */
-//     const existing = await Order.findOne({ requestId });
-
-//     if (existing) {
-//       return res.status(200).json({
-//         success: true,
-//         message: "Duplicate request (safe)",
-//         data: existing,
-//       });
-//     }
-
-//     /* ---------------- ORDER ID ---------------- */
 //     const orderId = `ORD-${Date.now()}-${Math.floor(
 //       Math.random() * 1e6
 //     )}`;
 
-//     /* ---------------- NORMALIZE ITEMS ---------------- */
-//     const items = data.items.map((item) => ({
-//       id: item.id,
-//       name: item.name,
-//       quantity: item.quantity || 1,
-//       originalPrice: item.originalPrice || 0,
-//       finalPrice: item.finalPrice || 0,
-//       preparationTime: item.preparationTime || 0,
-//       customizations: item.customizations || [],
-//       specialInstructions: item.specialInstructions || "",
-//     }));
-
-//     /* ---------------- CREATE ORDER ---------------- */
-//     const orderPayload = {
+//     /* ---------------- PAYLOAD ---------------- */
+//     const payload = {
 //       orderId,
 //       requestId,
-//       autoProgress: data.autoProgress || false,
 
-//       personDetails: {
-//         name: data.personDetails.name,
-//         tableNumber: data.personDetails.tableNumber || "",
-//         orderType: data.personDetails.orderType || "dine-in",
-//       },
+//       personDetails: data.personDetails,
 
 //       bookingDetails: {
 //         estimatedPickupTime:
 //           data.bookingDetails?.estimatedPickupTime || "",
-
 //         specialInstructions:
 //           data.bookingDetails?.specialInstructions || "",
-
-//         currentStatus: "preparing", // ✅ default
+//         currentStatus: "preparing",
 //         statusHistory: [
 //           {
 //             status: "preparing",
-//             note: "Order started",
+//             note: "Order created",
 //           },
 //         ],
 //       },
 
-//       items,
+//       items: data.items,
 //       notes: data.notes || "",
-//       status: "preparing", // ✅ default
+//       status: "preparing",
+//       autoProgress: data.autoProgress || false,
 //     };
 
-//     /* ---------------- SAVE (RACE SAFE) ---------------- */
-//     try {
-//       const order = await Order.create(orderPayload);
-
-//       return res.status(201).json({
-//         success: true,
-//         message: "Order created",
-//         data: order,
-//       });
-//     } catch (err) {
-//       // 🔥 HANDLE DUPLICATE FROM UNIQUE INDEX
-//       if (err.code === 11000 && err.keyPattern?.requestId) {
-//         const existing = await Order.findOne({ requestId });
-
-//         return res.status(200).json({
-//           success: true,
-//           message: "Duplicate recovered",
-//           data: existing,
-//         });
+//     /* ---------------- ATOMIC UPSERT ---------------- */
+//     const order = await Order.findOneAndUpdate(
+//       { requestId },         // 🔒 key
+//       { $setOnInsert: payload },
+//       {
+//         new: true,
+//         upsert: true,
 //       }
+//     );
 
-//       throw err;
-//     }
+//     return res.status(200).json({
+//       success: true,
+//       message: "Order processed safely",
+//       data: order,
+//     });
+
 //   } catch (error) {
-//     console.error("🔥 CREATE ERROR:", error);
+//     console.error("🔥 ERROR:", error);
 
 //     return res.status(500).json({
 //       success: false,
@@ -1396,21 +1200,13 @@ exports.createOrder = async (req, res) => {
   try {
     const data = req.body;
 
-    if (!data.personDetails?.name) {
+    if (!data.personDetails?.name || !data.items?.length) {
       return res.status(400).json({
         success: false,
-        message: "Customer name is required",
+        message: "Invalid order data",
       });
     }
 
-    if (!Array.isArray(data.items) || data.items.length === 0) {
-      return res.status(400).json({
-        success: false,
-        message: "Items required",
-      });
-    }
-
-    /* ---------------- ID GENERATION ---------------- */
     const requestId =
       data.requestId ||
       req.headers["x-request-id"] ||
@@ -1420,7 +1216,6 @@ exports.createOrder = async (req, res) => {
       Math.random() * 1e6
     )}`;
 
-    /* ---------------- PAYLOAD ---------------- */
     const payload = {
       orderId,
       requestId,
@@ -1444,12 +1239,11 @@ exports.createOrder = async (req, res) => {
       items: data.items,
       notes: data.notes || "",
       status: "preparing",
-      autoProgress: data.autoProgress || false,
     };
 
-    /* ---------------- ATOMIC UPSERT ---------------- */
+    /* ---------------- ATOMIC SAFE WRITE ---------------- */
     const order = await Order.findOneAndUpdate(
-      { requestId },         // 🔒 key
+      { orderId }, // primary safety key
       { $setOnInsert: payload },
       {
         new: true,
@@ -1459,20 +1253,17 @@ exports.createOrder = async (req, res) => {
 
     return res.status(200).json({
       success: true,
-      message: "Order processed safely",
+      message: "Order created safely",
       data: order,
     });
 
   } catch (error) {
-    console.error("🔥 ERROR:", error);
-
     return res.status(500).json({
       success: false,
       message: error.message,
     });
   }
 };
-
 
 /* -------------------------
    GET ALL ORDERS
