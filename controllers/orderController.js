@@ -245,11 +245,113 @@ const OrderStatusManager = require("../utils/orderStatusManager");
 /**
  * CREATE ORDER
  */
+// exports.createOrder = async (req, res) => {
+//   try {
+//     const orderData = req.body;
+
+//     // ✅ Basic validation
+//     if (!orderData.customerName || !orderData.items?.length) {
+//       return res.status(400).json({
+//         success: false,
+//         message: "Customer name and items are required",
+//       });
+//     }
+
+//     // 🆔 Generate IDs
+//     const orderId = `ORD_${Date.now()}_${Math.random()
+//       .toString(36)
+//       .substr(2, 9)
+//       .toUpperCase()}`;
+
+//     const bookingId = `BK_${Date.now()}_${Math.random()
+//       .toString(36)
+//       .substr(2, 6)
+//       .toUpperCase()}`;
+
+//     // 🧮 Safe calculations
+//     const items = orderData.items || [];
+
+//     const subtotal = items.reduce(
+//       (sum, i) => sum + (i.finalPrice || 0) * (i.quantity || 1),
+//       0
+//     );
+
+//     const totalItems = items.reduce(
+//       (sum, i) => sum + (i.quantity || 1),
+//       0
+//     );
+
+//     const total = subtotal;
+
+//     // 💾 Create order
+//     const order = await Order.create({
+//       orderId,
+//       bookingId,
+
+//       personDetails: {
+//         name: orderData.customerName,
+//         tableNumber: orderData.tableNumber || "",
+//         orderType: orderData.orderType || "dine-in",
+//       },
+
+//       bookingDetails: {
+//         orderDate: new Date(),
+//         estimatedPickupTime: orderData.estimatedPickupTime || "",
+//         preparationStatus: "confirmed",
+//         currentStatus: "confirmed",
+//         statusHistory: [
+//           {
+//             status: "confirmed",
+//             timestamp: new Date(),
+//             note: "Order created",
+//           },
+//         ],
+//         specialInstructions: orderData.notes || "",
+//       },
+
+//       plateRecommendations: orderData.customizedPlates || [],
+
+//       orderSummary: {
+//         items,
+//         subtotal,
+//         total,
+//         totalItems,
+//       },
+
+//       // 🔥 keep in sync always
+//       status: "confirmed",
+
+//       metadata: {
+//         source: "NutriScan-AI-App",
+//         version: "1.0.0",
+//         timestamp: new Date(),
+//       },
+//     });
+
+//     // 🔁 Auto progression
+//     if (orderData.autoProgress === true) {
+//       OrderStatusManager.startOrderStatusUpdates(order.orderId);
+//     }
+
+//     res.status(201).json({
+//       success: true,
+//       message: "Order created successfully",
+//       order,
+//     });
+//   } catch (error) {
+//     console.error("CREATE ORDER ERROR:", error);
+//     res.status(500).json({
+//       success: false,
+//       message: error.message,
+//     });
+//   }
+// };
+
 exports.createOrder = async (req, res) => {
   try {
     const orderData = req.body;
 
-    // ✅ Basic validation
+    // ✅ validation
     if (!orderData.customerName || !orderData.items?.length) {
       return res.status(400).json({
         success: false,
@@ -257,7 +359,7 @@ exports.createOrder = async (req, res) => {
       });
     }
 
-    // 🆔 Generate IDs
+    // 🆔 generate IDs
     const orderId = `ORD_${Date.now()}_${Math.random()
       .toString(36)
       .substr(2, 9)
@@ -268,7 +370,7 @@ exports.createOrder = async (req, res) => {
       .substr(2, 6)
       .toUpperCase()}`;
 
-    // 🧮 Safe calculations
+    // 🧮 calculate totals (backend trusted)
     const items = orderData.items || [];
 
     const subtotal = items.reduce(
@@ -283,7 +385,7 @@ exports.createOrder = async (req, res) => {
 
     const total = subtotal;
 
-    // 💾 Create order
+    // 💾 create order
     const order = await Order.create({
       orderId,
       bookingId,
@@ -318,7 +420,6 @@ exports.createOrder = async (req, res) => {
         totalItems,
       },
 
-      // 🔥 keep in sync always
       status: "confirmed",
 
       metadata: {
@@ -328,7 +429,7 @@ exports.createOrder = async (req, res) => {
       },
     });
 
-    // 🔁 Auto progression
+    // 🔁 optional auto status progression
     if (orderData.autoProgress === true) {
       OrderStatusManager.startOrderStatusUpdates(order.orderId);
     }
@@ -340,6 +441,7 @@ exports.createOrder = async (req, res) => {
     });
   } catch (error) {
     console.error("CREATE ORDER ERROR:", error);
+
     res.status(500).json({
       success: false,
       message: error.message,

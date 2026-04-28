@@ -76,19 +76,38 @@
 const mongoose = require("mongoose");
 
 const StatusHistorySchema = new mongoose.Schema({
-  status: { type: String, required: true },
-  timestamp: { type: Date, default: Date.now },
-  note: { type: String, default: "" },
+  status: {
+    type: String,
+    enum: ["confirmed", "preparing", "ready", "completed"],
+    required: true,
+  },
+  timestamp: {
+    type: Date,
+    default: Date.now,
+  },
+  note: {
+    type: String,
+    default: "",
+  },
 });
 
 const OrderSchema = new mongoose.Schema(
   {
-    orderId: { type: String, unique: true, required: true },
-    bookingId: { type: String, required: true },
+    orderId: {
+      type: String,
+      required: true,
+      unique: true,
+    },
+
+    bookingId: {
+      type: String,
+      required: true,
+      unique: true, // ✅ safe here (not inside bookingDetails)
+    },
 
     personDetails: {
       name: { type: String, required: true },
-      tableNumber: { type: String },
+      tableNumber: { type: String, default: "" },
       orderType: {
         type: String,
         enum: ["dine-in", "takeaway", "delivery"],
@@ -97,8 +116,15 @@ const OrderSchema = new mongoose.Schema(
     },
 
     bookingDetails: {
-      orderDate: { type: Date, default: Date.now },
-      estimatedPickupTime: { type: String },
+      orderDate: {
+        type: Date,
+        default: Date.now,
+      },
+
+      estimatedPickupTime: {
+        type: String,
+        default: "",
+      },
 
       preparationStatus: {
         type: String,
@@ -117,7 +143,10 @@ const OrderSchema = new mongoose.Schema(
         default: [],
       },
 
-      specialInstructions: { type: String, default: "" },
+      specialInstructions: {
+        type: String,
+        default: "",
+      },
     },
 
     plateRecommendations: {
@@ -125,7 +154,10 @@ const OrderSchema = new mongoose.Schema(
         {
           plateId: String,
           originalName: String,
-          customizations: { type: [mongoose.Schema.Types.Mixed], default: [] },
+          customizations: {
+            type: [mongoose.Schema.Types.Mixed],
+            default: [],
+          },
           specialInstructions: String,
         },
       ],
@@ -141,7 +173,10 @@ const OrderSchema = new mongoose.Schema(
             quantity: { type: Number, default: 1 },
             originalPrice: Number,
             finalPrice: Number,
-            customizations: { type: [mongoose.Schema.Types.Mixed], default: [] },
+            customizations: {
+              type: [mongoose.Schema.Types.Mixed],
+              default: [],
+            },
             specialInstructions: String,
             preparationTime: Number,
           },
@@ -154,7 +189,7 @@ const OrderSchema = new mongoose.Schema(
       totalItems: { type: Number, default: 0 },
     },
 
-    // 🔥 SINGLE SOURCE OF TRUTH (important)
+    // 🔥 single source of truth
     status: {
       type: String,
       enum: ["confirmed", "preparing", "ready", "completed"],

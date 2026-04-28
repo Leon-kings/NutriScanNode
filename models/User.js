@@ -106,7 +106,6 @@ userSchema.statics.findByEmail = function(email) {
 };
 
 // Indexes
-userSchema.index({ email: 1 });
 userSchema.index({ role: 1 });
 userSchema.index({ createdAt: -1 });
 
