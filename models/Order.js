@@ -363,16 +363,6 @@
 
 // module.exports = mongoose.model("Order", OrderSchema);
 
-
-
-
-
-
-
-
-
-
-
 // const mongoose = require("mongoose");
 
 // /* -------------------------
@@ -605,16 +595,6 @@
 
 // module.exports = mongoose.model("Order", OrderSchema);
 
-
-
-
-
-
-
-
-
-
-
 // const mongoose = require("mongoose");
 
 // /* -------------------------
@@ -831,248 +811,350 @@
 
 // module.exports = mongoose.model("Order", OrderSchema);
 
+// const mongoose = require("mongoose");
 
+// /* -------------------------
+//    STATUS HISTORY
+// -------------------------- */
+// const StatusHistorySchema = new mongoose.Schema({
+//   status: {
+//     type: String,
+//     enum: ["confirmed", "preparing", "ready", "completed"],
+//     default: "preparing",
+//     required: true,
+//   },
+//   timestamp: {
+//     type: Date,
+//     default: Date.now,
+//   },
+//   note: {
+//     type: String,
+//     default: "",
+//   },
+// });
 
+// /* -------------------------
+//    ITEM SUBSCHEMA
+// -------------------------- */
+// const ItemSchema = new mongoose.Schema({
+//   id: String,
+//   name: String,
+//   quantity: { type: Number, default: 1 },
+//   originalPrice: { type: Number, default: 0 },
+//   finalPrice: { type: Number, default: 0 },
+//   customizations: {
+//     type: [mongoose.Schema.Types.Mixed],
+//     default: [],
+//   },
+//   specialInstructions: String,
+//   preparationTime: { type: Number, default: 0 },
+// });
 
+// /* -------------------------
+//    MAIN ORDER SCHEMA
+// -------------------------- */
+// const OrderSchema = new mongoose.Schema(
+//   {
+//     orderId: {
+//       type: String,
+//       required: true,
+//       unique: true,
+//     },
 
+//     bookingId: {
+//       type: String,
+//       required: true,
+//       unique: true,
+//     },
 
+//     personDetails: {
+//       name: { type: String, required: true },
+//       tableNumber: { type: String, default: "" },
+//       orderType: {
+//         type: String,
+//         enum: ["dine-in", "takeaway", "delivery"],
+//         default: "dine-in",
+//       },
+//     },
+
+//     bookingDetails: {
+//       orderDate: { type: Date, default: Date.now },
+//       estimatedPickupTime: { type: String, default: "" },
+
+//       preparationStatus: {
+//         type: String,
+//         enum: ["confirmed", "preparing", "ready", "completed"],
+//         default: "preparing",
+//       },
+
+//       currentStatus: {
+//         type: String,
+//         enum: ["confirmed", "preparing", "ready", "completed"],
+//         default: "preparing",
+//       },
+
+//       statusHistory: {
+//         type: [StatusHistorySchema],
+//         default: [],
+//       },
+
+//       specialInstructions: {
+//         type: String,
+//         default: "",
+//       },
+//     },
+
+//     plateRecommendations: [
+//       {
+//         plateId: String,
+//         originalName: String,
+//         customizations: {
+//           type: [mongoose.Schema.Types.Mixed],
+//           default: [],
+//         },
+//         specialInstructions: String,
+//       },
+//     ],
+
+//     orderSummary: {
+//       items: {
+//         type: [ItemSchema],
+//         default: [],
+//       },
+//       subtotal: { type: Number, default: 0 },
+//       total: { type: Number, default: 0 },
+//       totalItems: { type: Number, default: 0 },
+//     },
+
+//     status: {
+//       type: String,
+//       enum: ["confirmed", "preparing", "ready", "completed"],
+//       default: "preparing",
+//     },
+
+//     metadata: {
+//       type: mongoose.Schema.Types.Mixed,
+//       default: {},
+//     },
+//   },
+//   { timestamps: true }
+// );
+
+// /* -------------------------
+//    INDEXES
+// -------------------------- */
+// OrderSchema.index({ status: 1 });
+// OrderSchema.index({ createdAt: -1 });
+// OrderSchema.index({ "bookingDetails.currentStatus": 1 });
+// OrderSchema.index({ status: 1, createdAt: -1 });
+// OrderSchema.index({ "bookingDetails.currentStatus": 1, createdAt: -1 });
+
+// /* -------------------------
+//    ID GENERATION
+// -------------------------- */
+// OrderSchema.statics.generateOrderId = function () {
+//   return `ORD-${Date.now()}-${Math.random()
+//     .toString(36)
+//     .slice(2, 8)
+//     .toUpperCase()}`;
+// };
+
+// OrderSchema.statics.generateBookingId = function () {
+//   return `BOOK-${Date.now()}-${Math.random()
+//     .toString(36)
+//     .slice(2, 6)
+//     .toUpperCase()}`;
+// };
+
+// /* -------------------------
+//    PRE-VALIDATE (FIXED)
+// -------------------------- */
+// OrderSchema.pre("validate", function (next) {
+//   try {
+//     if (!this.orderId) {
+//       this.orderId = this.constructor.generateOrderId();
+//     }
+
+//     if (!this.bookingId) {
+//       this.bookingId = this.constructor.generateBookingId();
+//     }
+
+//     next();
+//   } catch (err) {
+//     next(err);
+//   }
+// });
+
+// /* -------------------------
+//    PRE-SAVE CALCULATIONS (FIXED)
+// -------------------------- */
+// OrderSchema.pre("save", function (next) {
+//   try {
+//     if (this.orderSummary?.items?.length > 0) {
+//       const subtotal = this.orderSummary.items.reduce(
+//         (sum, item) =>
+//           sum + (item.finalPrice || 0) * (item.quantity || 1),
+//         0
+//       );
+
+//       const totalItems = this.orderSummary.items.reduce(
+//         (sum, item) => sum + (item.quantity || 1),
+//         0
+//       );
+
+//       this.orderSummary.subtotal = subtotal;
+//       this.orderSummary.total = subtotal;
+//       this.orderSummary.totalItems = totalItems;
+//     }
+
+//     next();
+//   } catch (err) {
+//     next(err);
+//   }
+// });
+
+// /* -------------------------
+//    STATUS SYNC (FIXED)
+// -------------------------- */
+// OrderSchema.pre("save", function (next) {
+//   try {
+//     if (this.isModified("status")) {
+//       this.bookingDetails.currentStatus = this.status;
+
+//       this.bookingDetails.statusHistory.push({
+//         status: this.status,
+//         timestamp: new Date(),
+//         note: "Status updated",
+//       });
+//     }
+
+//     next();
+//   } catch (err) {
+//     next(err);
+//   }
+// });
+
+// /* -------------------------
+//    CLEANUP INDEX
+// -------------------------- */
+// OrderSchema.statics.cleanupIndexes = async function () {
+//   const indexes = await this.collection.indexes();
+
+//   const badIndex = indexes.find(
+//     (i) => i.name === "bookingDetails.bookingId_1"
+//   );
+
+//   if (badIndex) {
+//     console.log("⚠️ Dropping broken index: bookingDetails.bookingId_1");
+//     await this.collection.dropIndex("bookingDetails.bookingId_1");
+//   }
+// };
+
+// module.exports = mongoose.model("Order", OrderSchema);
 
 const mongoose = require("mongoose");
+const { randomUUID } = require("crypto");
 
 /* -------------------------
-   STATUS HISTORY
--------------------------- */
-const StatusHistorySchema = new mongoose.Schema({
-  status: {
-    type: String,
-    enum: ["confirmed", "preparing", "ready", "completed"],
-    default: "preparing",
-    required: true,
-  },
-  timestamp: {
-    type: Date,
-    default: Date.now,
-  },
-  note: {
-    type: String,
-    default: "",
-  },
-});
-
-/* -------------------------
-   ITEM SUBSCHEMA
+   ITEM
 -------------------------- */
 const ItemSchema = new mongoose.Schema({
   id: String,
   name: String,
   quantity: { type: Number, default: 1 },
-  originalPrice: { type: Number, default: 0 },
-  finalPrice: { type: Number, default: 0 },
-  customizations: {
-    type: [mongoose.Schema.Types.Mixed],
-    default: [],
-  },
-  specialInstructions: String,
-  preparationTime: { type: Number, default: 0 },
+  originalPrice: Number,
+  finalPrice: Number,
+  preparationTime: Number,
+  customizations: { type: [String], default: [] },
+  specialInstructions: { type: String, default: "" },
 });
 
 /* -------------------------
-   MAIN ORDER SCHEMA
+   PLATE
+-------------------------- */
+const CustomizedPlateSchema = new mongoose.Schema({
+  plateId: String,
+  originalName: String,
+  customizations: { type: [String], default: [] },
+  specialInstructions: { type: String, default: "" },
+});
+
+/* -------------------------
+   BOOKING DETAILS
+-------------------------- */
+const BookingDetailsSchema = new mongoose.Schema({
+  estimatedPickupTime: String,
+  specialInstructions: String,
+});
+
+/* -------------------------
+   PERSON DETAILS
+-------------------------- */
+const PersonDetailsSchema = new mongoose.Schema({
+  name: { type: String, required: true },
+  orderType: {
+    type: String,
+    enum: ["dine-in", "takeaway", "delivery"],
+    default: "dine-in",
+  },
+  tableNumber: String,
+});
+
+/* -------------------------
+   ORDER
 -------------------------- */
 const OrderSchema = new mongoose.Schema(
   {
     orderId: {
       type: String,
+      unique: true, // ONLY UNIQUE FIELD
       required: true,
-      unique: true,
+      index: true,
     },
 
-    bookingId: {
-      type: String,
-      required: true,
-      unique: true,
+    autoProgress: {
+      type: Boolean,
+      default: false,
     },
 
-    personDetails: {
-      name: { type: String, required: true },
-      tableNumber: { type: String, default: "" },
-      orderType: {
-        type: String,
-        enum: ["dine-in", "takeaway", "delivery"],
-        default: "dine-in",
-      },
-    },
-
-    bookingDetails: {
-      orderDate: { type: Date, default: Date.now },
-      estimatedPickupTime: { type: String, default: "" },
-
-      preparationStatus: {
-        type: String,
-        enum: ["confirmed", "preparing", "ready", "completed"],
-        default: "preparing",
-      },
-
-      currentStatus: {
-        type: String,
-        enum: ["confirmed", "preparing", "ready", "completed"],
-        default: "preparing",
-      },
-
-      statusHistory: {
-        type: [StatusHistorySchema],
-        default: [],
-      },
-
-      specialInstructions: {
-        type: String,
-        default: "",
-      },
-    },
-
-    plateRecommendations: [
-      {
-        plateId: String,
-        originalName: String,
-        customizations: {
-          type: [mongoose.Schema.Types.Mixed],
-          default: [],
-        },
-        specialInstructions: String,
-      },
-    ],
-
-    orderSummary: {
-      items: {
-        type: [ItemSchema],
-        default: [],
-      },
-      subtotal: { type: Number, default: 0 },
-      total: { type: Number, default: 0 },
-      totalItems: { type: Number, default: 0 },
-    },
-
-    status: {
-      type: String,
-      enum: ["confirmed", "preparing", "ready", "completed"],
-      default: "preparing",
-    },
-
-    metadata: {
-      type: mongoose.Schema.Types.Mixed,
-      default: {},
-    },
+    bookingDetails: BookingDetailsSchema,
+    customizedPlates: { type: [CustomizedPlateSchema], default: [] },
+    items: { type: [ItemSchema], default: [] },
+    notes: String,
+    personDetails: PersonDetailsSchema,
   },
-  { timestamps: true }
+  { timestamps: true, strict: true },
 );
 
 /* -------------------------
-   INDEXES
--------------------------- */
-OrderSchema.index({ status: 1 });
-OrderSchema.index({ createdAt: -1 });
-OrderSchema.index({ "bookingDetails.currentStatus": 1 });
-OrderSchema.index({ status: 1, createdAt: -1 });
-OrderSchema.index({ "bookingDetails.currentStatus": 1, createdAt: -1 });
-
-/* -------------------------
-   ID GENERATION
+   SAFE ID GENERATION
 -------------------------- */
 OrderSchema.statics.generateOrderId = function () {
-  return `ORD-${Date.now()}-${Math.random()
-    .toString(36)
-    .slice(2, 8)
-    .toUpperCase()}`;
-};
-
-OrderSchema.statics.generateBookingId = function () {
-  return `BOOK-${Date.now()}-${Math.random()
-    .toString(36)
-    .slice(2, 6)
-    .toUpperCase()}`;
+  return `ORD-${Date.now()}-${randomUUID()}`;
 };
 
 /* -------------------------
-   PRE-VALIDATE (FIXED)
+   AUTO SET ORDER ID (SAFE)
 -------------------------- */
 OrderSchema.pre("validate", function (next) {
-  try {
-    if (!this.orderId) {
-      this.orderId = this.constructor.generateOrderId();
-    }
-
-    if (!this.bookingId) {
-      this.bookingId = this.constructor.generateBookingId();
-    }
-
-    next();
-  } catch (err) {
-    next(err);
+  if (!this.orderId) {
+    this.orderId = this.constructor.generateOrderId();
   }
+  next();
 });
 
 /* -------------------------
-   PRE-SAVE CALCULATIONS (FIXED)
+   REMOVE OLD BAD INDEXES (IMPORTANT)
 -------------------------- */
-OrderSchema.pre("save", function (next) {
-  try {
-    if (this.orderSummary?.items?.length > 0) {
-      const subtotal = this.orderSummary.items.reduce(
-        (sum, item) =>
-          sum + (item.finalPrice || 0) * (item.quantity || 1),
-        0
-      );
-
-      const totalItems = this.orderSummary.items.reduce(
-        (sum, item) => sum + (item.quantity || 1),
-        0
-      );
-
-      this.orderSummary.subtotal = subtotal;
-      this.orderSummary.total = subtotal;
-      this.orderSummary.totalItems = totalItems;
-    }
-
-    next();
-  } catch (err) {
-    next(err);
-  }
-});
-
-/* -------------------------
-   STATUS SYNC (FIXED)
--------------------------- */
-OrderSchema.pre("save", function (next) {
-  try {
-    if (this.isModified("status")) {
-      this.bookingDetails.currentStatus = this.status;
-
-      this.bookingDetails.statusHistory.push({
-        status: this.status,
-        timestamp: new Date(),
-        note: "Status updated",
-      });
-    }
-
-    next();
-  } catch (err) {
-    next(err);
-  }
-});
-
-/* -------------------------
-   CLEANUP INDEX
--------------------------- */
-OrderSchema.statics.cleanupIndexes = async function () {
+OrderSchema.statics.fixIndexes = async function () {
   const indexes = await this.collection.indexes();
 
-  const badIndex = indexes.find(
-    (i) => i.name === "bookingDetails.bookingId_1"
-  );
-
-  if (badIndex) {
-    console.log("⚠️ Dropping broken index: bookingDetails.bookingId_1");
-    await this.collection.dropIndex("bookingDetails.bookingId_1");
+  for (const idx of indexes) {
+    // remove broken or legacy booking indexes
+    if (idx.name.includes("bookingDetails") || idx.name.includes("bookingId")) {
+      await this.collection.dropIndex(idx.name);
+      console.log("Removed index:", idx.name);
+    }
   }
 };
 
