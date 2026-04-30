@@ -2508,8 +2508,7 @@ const ItemSchema = new mongoose.Schema(
     },
 
     preparationTime: {
-      type: Number,
-      default: 0,
+      type: Number
     },
 
     customizations: {
