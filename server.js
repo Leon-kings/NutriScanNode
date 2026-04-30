@@ -128,6 +128,154 @@
 
 
 
+// const express = require("express");
+// const mongoose = require("mongoose");
+// const dotenv = require("dotenv");
+// const cors = require("cors");
+// const helmet = require("helmet");
+// const morgan = require("morgan");
+// const rateLimit = require("express-rate-limit");
+
+// dotenv.config();
+
+// /* ---------------- IMPORTS ---------------- */
+// const authRoutes = require("./routes/authRoutes");
+// const orderRoutes = require("./routes/orderRoutes");
+// const foodRoutes = require("./routes/foodRoutes");
+// const errorMiddleware = require("./middleware/errorMiddleware");
+// const cleanOrderIndexes = require("./utils/cleanIndexes");
+
+// /* ---------------- APP ---------------- */
+// const app = express();
+
+// /* ---------------- DB ---------------- */
+// const connectDB = async () => {
+//   try {
+//     await mongoose.connect(process.env.MONGODB_URI, {
+//       autoIndex: false,
+//       serverSelectionTimeoutMS: 5000,
+//       socketTimeoutMS: 45000,
+//     });
+
+//     console.log("✅ MongoDB connected");
+
+//     await cleanOrderIndexes();
+//     console.log("🧹 Index cleanup complete");
+
+//   } catch (err) {
+//     console.error("❌ MongoDB connection error:", err.message);
+//     setTimeout(connectDB, 5000);
+//   }
+// };
+
+// /* ---------------- DB EVENTS ---------------- */
+// mongoose.connection.on("connected", () => {
+//   console.log("🟢 Mongoose connected");
+// });
+
+// mongoose.connection.on("error", (err) => {
+//   console.error("🔴 Mongoose error:", err.message);
+// });
+
+// mongoose.connection.on("disconnected", () => {
+//   console.warn("🟡 Mongoose disconnected");
+// });
+
+// /* ---------------- SECURITY ---------------- */
+// const limiter = rateLimit({
+//   windowMs: 75 * 60 * 1000,
+//   max: 100,
+//   message: "Too many requests, try again later.",
+// });
+
+// /* ---------------- MIDDLEWARE ---------------- */
+// app.use(helmet());
+// app.use(cors());
+// app.use(express.json());
+// app.use(express.urlencoded({ extended: true }));
+// app.use(morgan("dev"));
+// app.use(limiter);
+
+// /* ---------------- ROUTES (NO /api PREFIX) ---------------- */
+// app.use("/auth", authRoutes);
+// app.use("/new/order", orderRoutes);
+// app.use("/foods", foodRoutes);
+
+// /* ---------------- HEALTH ---------------- */
+// app.get("/health", (req, res) => {
+//   res.status(200).json({
+//     status: "OK",
+//     dbState: mongoose.connection.readyState,
+//     timestamp: new Date().toISOString(),
+//   });
+// });
+
+// /* ---------------- ROOT ---------------- */
+// app.get("/", (req, res) => {
+//   res.json({
+//     message: "Restaurant API",
+//     version: "1.0.0",
+//     endpoints: {
+//       auth: "/auth",
+//       orders: "/new/order",
+//       foods: "/foods",
+//     },
+//   });
+// });
+
+// /* ---------------- 404 ---------------- */
+// app.use((req, res) => {
+//   res.status(404).json({
+//     success: false,
+//     message: `Cannot find ${req.originalUrl}`,
+//   });
+// });
+
+// /* ---------------- ERROR ---------------- */
+// app.use(errorMiddleware);
+
+// /* ---------------- START SERVER ---------------- */
+// const PORT = process.env.PORT || 5000;
+
+// const startServer = async () => {
+//   await connectDB();
+
+//   const server = app.listen(PORT, () => {
+//     console.log(`🚀 Server running on port ${PORT}`);
+//   });
+
+//   /* ---------------- GRACEFUL SHUTDOWN ---------------- */
+//   const shutdown = async (signal) => {
+//     console.log(`\n⚠️ ${signal} received`);
+
+//     server.close(async () => {
+//       await mongoose.connection.close();
+//       console.log("🔌 DB closed");
+//       process.exit(0);
+//     });
+//   };
+
+//   process.on("SIGINT", shutdown);
+//   process.on("SIGTERM", shutdown);
+// };
+
+// startServer();
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 const express = require("express");
 const mongoose = require("mongoose");
 const dotenv = require("dotenv");
@@ -138,57 +286,25 @@ const rateLimit = require("express-rate-limit");
 
 dotenv.config();
 
-/* ---------------- IMPORTS ---------------- */
+/* ---------------- ROUTES ---------------- */
 const authRoutes = require("./routes/authRoutes");
 const orderRoutes = require("./routes/orderRoutes");
 const foodRoutes = require("./routes/foodRoutes");
+
+/* ---------------- MIDDLEWARE ---------------- */
 const errorMiddleware = require("./middleware/errorMiddleware");
-const cleanOrderIndexes = require("./utils/cleanIndexes");
 
 /* ---------------- APP ---------------- */
 const app = express();
 
-/* ---------------- DB ---------------- */
-const connectDB = async () => {
-  try {
-    await mongoose.connect(process.env.MONGODB_URI, {
-      autoIndex: false,
-      serverSelectionTimeoutMS: 5000,
-      socketTimeoutMS: 45000,
-    });
-
-    console.log("✅ MongoDB connected");
-
-    await cleanOrderIndexes();
-    console.log("🧹 Index cleanup complete");
-
-  } catch (err) {
-    console.error("❌ MongoDB connection error:", err.message);
-    setTimeout(connectDB, 5000);
-  }
-};
-
-/* ---------------- DB EVENTS ---------------- */
-mongoose.connection.on("connected", () => {
-  console.log("🟢 Mongoose connected");
-});
-
-mongoose.connection.on("error", (err) => {
-  console.error("🔴 Mongoose error:", err.message);
-});
-
-mongoose.connection.on("disconnected", () => {
-  console.warn("🟡 Mongoose disconnected");
-});
-
-/* ---------------- SECURITY ---------------- */
+/* ---------------- RATE LIMIT ---------------- */
 const limiter = rateLimit({
-  windowMs: 75 * 60 * 1000,
+  windowMs: 60 * 60 * 1000,
   max: 100,
   message: "Too many requests, try again later.",
 });
 
-/* ---------------- MIDDLEWARE ---------------- */
+/* ---------------- GLOBAL MIDDLEWARE ---------------- */
 app.use(helmet());
 app.use(cors());
 app.use(express.json());
@@ -196,30 +312,25 @@ app.use(express.urlencoded({ extended: true }));
 app.use(morgan("dev"));
 app.use(limiter);
 
-/* ---------------- ROUTES (NO /api PREFIX) ---------------- */
+/* ---------------- ROUTES ---------------- */
 app.use("/auth", authRoutes);
 app.use("/orders", orderRoutes);
 app.use("/foods", foodRoutes);
 
-/* ---------------- HEALTH ---------------- */
+/* ---------------- HEALTH CHECK ---------------- */
 app.get("/health", (req, res) => {
-  res.status(200).json({
+  res.json({
     status: "OK",
     dbState: mongoose.connection.readyState,
-    timestamp: new Date().toISOString(),
+    time: new Date().toISOString(),
   });
 });
 
 /* ---------------- ROOT ---------------- */
 app.get("/", (req, res) => {
   res.json({
-    message: "Restaurant API",
+    message: "Restaurant API is running",
     version: "1.0.0",
-    endpoints: {
-      auth: "/auth",
-      orders: "/orders",
-      foods: "/foods",
-    },
   });
 });
 
@@ -227,14 +338,27 @@ app.get("/", (req, res) => {
 app.use((req, res) => {
   res.status(404).json({
     success: false,
-    message: `Cannot find ${req.originalUrl}`,
+    message: `Route not found: ${req.originalUrl}`,
   });
 });
 
-/* ---------------- ERROR ---------------- */
+/* ---------------- ERROR HANDLER ---------------- */
 app.use(errorMiddleware);
 
-/* ---------------- START SERVER ---------------- */
+/* ---------------- DB CONNECTION ---------------- */
+const connectDB = async () => {
+  try {
+    await mongoose.connect(process.env.MONGODB_URI);
+
+    console.log("✅ MongoDB connected");
+  } catch (error) {
+    console.error("❌ DB connection failed:", error.message);
+
+    setTimeout(connectDB, 5000); // retry
+  }
+};
+
+/* ---------------- SERVER START ---------------- */
 const PORT = process.env.PORT || 5000;
 
 const startServer = async () => {
@@ -246,11 +370,11 @@ const startServer = async () => {
 
   /* ---------------- GRACEFUL SHUTDOWN ---------------- */
   const shutdown = async (signal) => {
-    console.log(`\n⚠️ ${signal} received`);
+    console.log(`⚠️ ${signal} received`);
 
     server.close(async () => {
       await mongoose.connection.close();
-      console.log("🔌 DB closed");
+      console.log("🔌 MongoDB disconnected");
       process.exit(0);
     });
   };
