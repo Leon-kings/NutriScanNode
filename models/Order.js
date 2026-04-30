@@ -2472,10 +2472,198 @@
 
 
 
+// const mongoose = require("mongoose");
+// const crypto = require("crypto");
+
+// /* ---------------- ITEM ---------------- */
+// const ItemSchema = new mongoose.Schema(
+//   {
+//     id: {
+//       type: String,
+//       default: () => crypto.randomUUID(),
+//     },
+
+//     name: {
+//       type: String,
+//       required: true,
+//       trim: true,
+//     },
+
+//     quantity: {
+//       type: Number,
+//       default: 1,
+//       min: 1,
+//     },
+
+//     originalPrice: {
+//       type: Number,
+//       default: 0,
+//       min: 0,
+//     },
+
+//     finalPrice: {
+//       type: Number,
+//       default: 0,
+//       min: 0,
+//     },
+
+//     preparationTime: {
+//       type: Number
+//     },
+
+//     customizations: {
+//       type: [String],
+//       default: [],
+//     },
+
+//     specialInstructions: {
+//       type: String,
+//       default: "",
+//     },
+//   },
+//   { _id: false }
+// );
+
+// /* ---------------- STATUS HISTORY ---------------- */
+// const StatusSchema = new mongoose.Schema(
+//   {
+//     status: {
+//       type: String,
+//       enum: ["preparing", "ready", "completed"],
+//       required: true,
+//     },
+//     timestamp: {
+//       type: Date,
+//       default: Date.now,
+//     },
+//     note: String,
+//   },
+//   { _id: false }
+// );
+
+// /* ---------------- ORDER ---------------- */
+// const OrderSchema = new mongoose.Schema(
+//   {
+//     /* ✅ MAIN UNIQUE ORDER ID */
+//     orderId: {
+//       type: String,
+//       required: true,
+//       unique: true,
+//       index: true,
+//     },
+
+//     /* ✅ IDEMPOTENCY KEY (SAFE) */
+//     requestId: {
+//       type: String,
+//       index: true,
+//       default: null,
+//     },
+
+//     /* ---------------- CUSTOMER ---------------- */
+//     personDetails: {
+//       name: {
+//         type: String,
+//         required: true,
+//         trim: true,
+//       },
+
+//       tableNumber: {
+//         type: String,
+//         default: "",
+//       },
+
+//       orderType: {
+//         type: String,
+//         enum: ["dine-in", "takeaway"],
+//         default: "dine-in",
+//       },
+//     },
+
+//     /* ---------------- BOOKING ---------------- */
+//     bookingDetails: {
+//       estimatedPickupTime: {
+//         type: Date,
+//         default: null,
+//       },
+
+//       specialInstructions: {
+//         type: String,
+//         default: "",
+//       },
+
+//       currentStatus: {
+//         type: String,
+//         enum: ["preparing", "ready", "completed"],
+//         default: "preparing",
+//       },
+
+//       statusHistory: {
+//         type: [StatusSchema],
+//         default: [
+//           {
+//             status: "preparing",
+//             note: "Order created",
+//           },
+//         ],
+//       },
+//     },
+
+//     /* ---------------- ITEMS ---------------- */
+//     items: {
+//       type: [ItemSchema],
+//       validate: {
+//         validator: (v) => v.length > 0,
+//         message: "Order must contain at least one item",
+//       },
+//     },
+
+//     notes: {
+//       type: String,
+//       default: "",
+//     },
+
+//     status: {
+//       type: String,
+//       enum: ["preparing", "ready", "completed"],
+//       default: "preparing",
+//       index: true,
+//     },
+//   },
+//   {
+//     timestamps: true,
+//   }
+// );
+
+// /* ---------------- IMPORTANT SAFETY RULES ---------------- */
+// // DO NOT create bookingDetails.orderId anywhere
+// // DO NOT add manual indexes for nested optional fields
+
+// module.exports = mongoose.model("Order", OrderSchema);
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 const mongoose = require("mongoose");
 const crypto = require("crypto");
 
-/* ---------------- ITEM ---------------- */
+/* ================= ITEM ================= */
 const ItemSchema = new mongoose.Schema(
   {
     id: {
@@ -2483,48 +2671,24 @@ const ItemSchema = new mongoose.Schema(
       default: () => crypto.randomUUID(),
     },
 
-    name: {
-      type: String,
-      required: true,
-      trim: true,
-    },
+    name: { type: String, required: true, trim: true },
 
-    quantity: {
-      type: Number,
-      default: 1,
-      min: 1,
-    },
+    quantity: { type: Number, default: 1, min: 1 },
 
-    originalPrice: {
-      type: Number,
-      default: 0,
-      min: 0,
-    },
+    originalPrice: { type: Number, default: 0, min: 0 },
 
-    finalPrice: {
-      type: Number,
-      default: 0,
-      min: 0,
-    },
+    finalPrice: { type: Number, default: 0, min: 0 },
 
-    preparationTime: {
-      type: Number
-    },
+    preparationTime: { type: Number, default: 0 },
 
-    customizations: {
-      type: [String],
-      default: [],
-    },
+    customizations: { type: [String], default: [] },
 
-    specialInstructions: {
-      type: String,
-      default: "",
-    },
+    specialInstructions: { type: String, default: "" },
   },
   { _id: false }
 );
 
-/* ---------------- STATUS HISTORY ---------------- */
+/* ================= STATUS ================= */
 const StatusSchema = new mongoose.Schema(
   {
     status: {
@@ -2532,19 +2696,15 @@ const StatusSchema = new mongoose.Schema(
       enum: ["preparing", "ready", "completed"],
       required: true,
     },
-    timestamp: {
-      type: Date,
-      default: Date.now,
-    },
+    timestamp: { type: Date, default: Date.now },
     note: String,
   },
   { _id: false }
 );
 
-/* ---------------- ORDER ---------------- */
+/* ================= ORDER ================= */
 const OrderSchema = new mongoose.Schema(
   {
-    /* ✅ MAIN UNIQUE ORDER ID */
     orderId: {
       type: String,
       required: true,
@@ -2552,26 +2712,15 @@ const OrderSchema = new mongoose.Schema(
       index: true,
     },
 
-    /* ✅ IDEMPOTENCY KEY (SAFE) */
     requestId: {
       type: String,
       index: true,
       default: null,
     },
 
-    /* ---------------- CUSTOMER ---------------- */
     personDetails: {
-      name: {
-        type: String,
-        required: true,
-        trim: true,
-      },
-
-      tableNumber: {
-        type: String,
-        default: "",
-      },
-
+      name: { type: String, required: true, trim: true },
+      tableNumber: { type: String, default: "" },
       orderType: {
         type: String,
         enum: ["dine-in", "takeaway"],
@@ -2579,17 +2728,10 @@ const OrderSchema = new mongoose.Schema(
       },
     },
 
-    /* ---------------- BOOKING ---------------- */
     bookingDetails: {
-      estimatedPickupTime: {
-        type: Date,
-        default: null,
-      },
+      estimatedPickupTime: { type: Date, default: null },
 
-      specialInstructions: {
-        type: String,
-        default: "",
-      },
+      specialInstructions: { type: String, default: "" },
 
       currentStatus: {
         type: String,
@@ -2608,7 +2750,6 @@ const OrderSchema = new mongoose.Schema(
       },
     },
 
-    /* ---------------- ITEMS ---------------- */
     items: {
       type: [ItemSchema],
       validate: {
@@ -2617,10 +2758,7 @@ const OrderSchema = new mongoose.Schema(
       },
     },
 
-    notes: {
-      type: String,
-      default: "",
-    },
+    notes: { type: String, default: "" },
 
     status: {
       type: String,
@@ -2629,13 +2767,7 @@ const OrderSchema = new mongoose.Schema(
       index: true,
     },
   },
-  {
-    timestamps: true,
-  }
+  { timestamps: true }
 );
-
-/* ---------------- IMPORTANT SAFETY RULES ---------------- */
-// DO NOT create bookingDetails.orderId anywhere
-// DO NOT add manual indexes for nested optional fields
 
 module.exports = mongoose.model("Order", OrderSchema);
