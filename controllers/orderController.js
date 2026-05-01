@@ -615,104 +615,6 @@ const crypto = require("crypto");
 /* =====================================================
    CREATE ORDER (SAFE + IDEMPOTENT)
 ===================================================== */
-// exports.createOrder = async (req, res) => {
-//   try {
-//     const data = req.body;
-
-//     /* ---------------- VALIDATION ---------------- */
-//     if (!data?.personDetails?.name) {
-//       return res.status(400).json({
-//         success: false,
-//         message: "Customer name is required",
-//       });
-//     }
-
-//     if (!Array.isArray(data.items) || data.items.length === 0) {
-//       return res.status(400).json({
-//         success: false,
-//         message: "Order must contain at least one item",
-//       });
-//     }
-
-//     /* ---------------- IDEMPOTENCY KEY ---------------- */
-//     const requestId =
-//       data.requestId ||
-//       req.headers["x-request-id"] ||
-//       crypto.randomUUID();
-
-//     /* ---------------- CHECK DUPLICATE ---------------- */
-//     const existing = await Order.findOne({ requestId });
-
-//     if (existing) {
-//       return res.status(200).json({
-//         success: true,
-//         message: "Duplicate prevented",
-//         data: existing,
-//       });
-//     }
-
-//     /* ---------------- ORDER ID ---------------- */
-//     const orderId = `ORD-${Date.now()}-${crypto.randomUUID()}`;
-
-//     /* ---------------- CREATE ORDER ---------------- */
-//     const order = await Order.create({
-//       orderId,
-//       requestId,
-
-//       personDetails: {
-//         name: data.personDetails.name,
-//         tableNumber: data.personDetails.tableNumber || "",
-//         orderType: data.personDetails.orderType || "dine-in",
-//       },
-
-//       bookingDetails: {
-//         estimatedPickupTime: data.bookingDetails?.estimatedPickupTime
-//           ? new Date(data.bookingDetails.estimatedPickupTime)
-//           : null,
-
-//         specialInstructions:
-//           data.bookingDetails?.specialInstructions || "",
-
-//         currentStatus: "preparing",
-
-//         statusHistory: [
-//           {
-//             status: "preparing",
-//             note: "Order created",
-//             timestamp: new Date(),
-//           },
-//         ],
-//       },
-
-//       items: data.items.map((item) => ({
-//         id: item.id || crypto.randomUUID(),
-//         name: item.name,
-//         quantity: item.quantity || 1,
-//         originalPrice: item.originalPrice || 0,
-//         finalPrice: item.finalPrice || 0,
-//         preparationTime: item.preparationTime || 0,
-//         customizations: item.customizations || [],
-//         specialInstructions: item.specialInstructions || "",
-//       })),
-
-//       notes: data.notes || "",
-//       status: "preparing",
-//     });
-
-//     return res.status(201).json({
-//       success: true,
-//       message: "Order created successfully",
-//       data: order,
-//     });
-//   } catch (error) {
-//     console.error("CREATE ORDER ERROR:", error);
-
-//     return res.status(500).json({
-//       success: false,
-//       message: error.message,
-//     });
-//   }
-// };
 
 exports.createOrder = async (req, res) => {
   try {
@@ -829,22 +731,6 @@ exports.createOrder = async (req, res) => {
 /* =====================================================
    GET ALL ORDERS
 ===================================================== */
-// exports.getAllOrders = async (req, res) => {
-//   try {
-//     const orders = await Order.find().sort({ createdAt: -1 });
-
-//     return res.json({
-//       success: true,
-//       count: orders.length,
-//       data: orders,
-//     });
-//   } catch (error) {
-//     return res.status(500).json({
-//       success: false,
-//       message: error.message,
-//     });
-//   }
-// };
 
 exports.getAllOrders = async (req, res) => {
   try {
