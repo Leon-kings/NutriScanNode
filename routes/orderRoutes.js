@@ -30,24 +30,101 @@
 
 
 
+// const express = require("express");
+// const router = express.Router();
+// const order = require("../controllers/orderController");
+// const analytics = require("../controllers/orderAnalyticsController");
+
+// /* =========================
+//    ANALYTICS FIRST
+// ========================= */
+// router.get("/analytics/daily", analytics.getDailyReport);
+// router.get("/analytics/weekly", analytics.getWeeklyReport);
+
+// /* =========================
+//    ORDERS
+// ========================= */
+// router.post("/", order.createOrder);
+// router.get("/", order.getAllOrders);
+// router.get("/:orderId", order.getOrderById);
+// router.put("/:orderId", order.updateOrder);
+// router.delete("/:orderId", order.deleteOrder);
+
+// module.exports = router;
+
+
+
+
+
+
+
+
+
+
+
+
 const express = require("express");
+
 const router = express.Router();
+
 const order = require("../controllers/orderController");
-const analytics = require("../controllers/orderAnalyticsController");
 
-/* =========================
-   ANALYTICS FIRST
-========================= */
-router.get("/analytics/daily", analytics.getDailyReport);
-router.get("/analytics/weekly", analytics.getWeeklyReport);
+const analytics = require(
+  "../controllers/orderAnalyticsController"
+);
 
-/* =========================
-   ORDERS
-========================= */
-router.post("/", order.createOrder);
-router.get("/", order.getAllOrders);
-router.get("/:orderId", order.getOrderById);
-router.put("/:orderId", order.updateOrder);
-router.delete("/:orderId", order.deleteOrder);
+/* =====================================================
+   ANALYTICS ROUTES
+===================================================== */
+
+router.get(
+  "/analytics/daily",
+  analytics.getDailyReport
+);
+
+router.get(
+  "/analytics/weekly",
+  analytics.getWeeklyReport
+);
+
+/* =====================================================
+   ORDER ROUTES
+===================================================== */
+
+/* CREATE ORDER */
+router.post(
+  "/",
+  order.createOrder
+);
+
+/* GET ALL ORDERS */
+router.get(
+  "/",
+  order.getAllOrders
+);
+
+/* GET SINGLE ORDER */
+router.get(
+  "/:orderId",
+  order.getOrderById
+);
+
+/* EDIT ORDER */
+router.put(
+  "/:orderId",
+  order.editOrder
+);
+
+/* UPDATE ORDER STATUS */
+router.patch(
+  "/:orderId/status",
+  order.updateOrderStatus
+);
+
+/* DELETE ORDER */
+router.delete(
+  "/:orderId",
+  order.deleteOrder
+);
 
 module.exports = router;
