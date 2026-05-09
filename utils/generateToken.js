@@ -1,19 +1,33 @@
 const jwt = require("jsonwebtoken");
 
-const blacklist = new Set();
-
+/**
+ * Generate JWT token
+ */
 exports.generateToken = (user) => {
   return jwt.sign(
-    { id: user._id, role: user.role },
+    {
+      id: user._id,
+      role: user.role,
+    },
     process.env.JWT_SECRET,
-    { expiresIn: "7d" }
+    {
+      expiresIn: "1d",
+    }
   );
 };
 
-exports.blacklistToken = (token) => {
-  blacklist.add(token);
+/**
+ * Fake blacklist function
+ * Keeps old controllers compatible
+ */
+exports.blacklistToken = async () => {
+  return true;
 };
 
-exports.isTokenBlacklisted = (token) => {
-  return blacklist.has(token);
+/**
+ * Always return false
+ * since blacklist system is removed
+ */
+exports.isTokenBlacklisted = async () => {
+  return false;
 };
